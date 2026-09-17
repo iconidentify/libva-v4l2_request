@@ -23,11 +23,12 @@ merged prerequisites are already there. Re-read live claims before choosing.
 
 | Scope | Next concrete deliverable | State at this handoff |
 | --- | --- | --- |
-| [HEVC reference-content adapter #82](https://github.com/iconidentify/omarchy-m1-video/issues/82) | Connect actual client pause/drain/retention and verified coherent allocation identity; retain rejection where the APIs cannot prove them | Offline implementation available after the synthetic observer in [PR #83](https://github.com/iconidentify/omarchy-m1-video/pull/83); no real copy path yet |
+| [Real concurrent VA-API worker #94](https://github.com/iconidentify/libva-v4l2_request/issues/94) | Implement the actual FFmpeg/libva client, shared-display schedules, independent software oracle and bounded process cleanup | Ready offline; parent #36 retains ten guarded hardware repetitions |
+| [HEVC reference-content adapter #82](https://github.com/iconidentify/omarchy-m1-video/issues/82) | Connect actual client pause/drain/retention and verified coherent allocation identity; retain rejection where the APIs cannot prove them | Offline implementation available after synthetic [PR #83](https://github.com/iconidentify/omarchy-m1-video/pull/83) and static audit [PR #90](https://github.com/iconidentify/omarchy-m1-video/pull/90); no live adapter or copy path yet |
 | [H.264 actual admission #79](https://github.com/iconidentify/omarchy-m1-video/issues/79) | Exercise real Annex-B/AVCC parser-to-issue behavior, rejected suffixes and config/flush transitions before any profile remap | Offline implementation available after the partial guards in [PR #80](https://github.com/iconidentify/omarchy-m1-video/pull/80) |
 | [HEVC parameter sets #44](https://github.com/iconidentify/omarchy-m1-video/issues/44) | Local FFmpeg parser fix and full-output software regressions | Claimed by SarthakU; coordinate, do not duplicate |
-| [AV1 startup unwind #86](https://github.com/iconidentify/omarchy-m1-video/issues/86) | Reproduce the untested AV1 allocation-failure path and prove a minimal isolated cleanup repair with actual-source tests | Ready offline; no AV1 hardware-support claim |
-| [AVD allocation retry #81](https://github.com/iconidentify/omarchy-m1-video/issues/81) | Actual allocator/startup failure regressions and isolated candidate module build | [PR #84](https://github.com/iconidentify/omarchy-m1-video/pull/84) owns the candidate; later guarded runtime qualification is [#87](https://github.com/iconidentify/omarchy-m1-video/issues/87) |
+| [AV1 startup unwind #86](https://github.com/iconidentify/omarchy-m1-video/issues/86) | Actual-source failure/unwind repair and full matched-header build | Completed in [PR #89](https://github.com/iconidentify/omarchy-m1-video/pull/89); no AV1 hardware-support claim |
+| [AVD allocation retry #81](https://github.com/iconidentify/omarchy-m1-video/issues/81) | Actual allocator/startup failure regressions and isolated candidate module build | Completed in [PR #84](https://github.com/iconidentify/omarchy-m1-video/pull/84); combined candidate passed selected runtime qualification in [PR #91](https://github.com/iconidentify/omarchy-m1-video/pull/91), original restored; not shipped |
 | [Capture backing #52](https://github.com/iconidentify/omarchy-m1-video/issues/52) / [driver #90](https://github.com/iconidentify/libva-v4l2_request/issues/90) | Establish allocation/export/import/CPU coherence before changing cache policy, then qualify Chromium | Blocked on that reviewed contract; respect #90's existing contributor claim |
 
 Completed research/tools are inputs, not new assignments: client-selection #41/#73,
@@ -35,9 +36,9 @@ HEVC control traces driver #84, VP9 state validator companion #42, field-feasibi
 #43 and reference-memory audit #77. Their hardware/feature parents remain open.
 Driver [#22](https://github.com/iconidentify/libva-v4l2_request/issues/22) fuzzing
 retains its active claim. [#36](https://github.com/iconidentify/libva-v4l2_request/issues/36)
-concurrency has an expired claim (2026-09-17 19:15 UTC); its remaining real-worker and
-guarded hardware gates are blocked. Preserve the merged work and coordinate a fresh
-bounded claim before taking it over. The live queue can change after this dated snapshot.
+concurrency has an expired claim (2026-09-17 19:15 UTC); its actual client worker is now the ready offline child [#94](https://github.com/iconidentify/libva-v4l2_request/issues/94),
+while the parent retains guarded hardware qualification. Preserve the merged work
+and coordinate a fresh bounded claim before starting. The live queue can change after this dated snapshot.
 
 Check the **open, ready** queues in the
 [driver](https://github.com/iconidentify/libva-v4l2_request/issues?q=is%3Aissue%20is%3Aopen%20label%3Astatus%3Aready)
@@ -96,8 +97,11 @@ Paired HEVC captures now show matching selected commands and controls while RPS_
 still produces wrong pixels. The next discriminating observation is coherent
 reference content with proven writer identity and quiescence; equal commands do not
 prove firmware guilt. The source-proven allocation retry/startup defects have an
-isolated candidate, but accepted RPS_E runs had no allocation errors, so that candidate
-is not an established corruption fix. VP9 resizing still needs its validated
+isolated candidate that preserved 5,112 selected decoded frames across original,
+candidate and restored-original stages ([evidence](https://github.com/iconidentify/omarchy-m1-video/blob/c47ee15a6d4c4809377af11d2e70f2bd31be5ad6/experiments/avd-allocation-qualification/README.md)).
+This is selected runtime qualification, not a full conformance rerun or shipped fix.
+Accepted RPS_E runs had no allocation errors, and its known wrong sets remain, so
+this candidate is not an established corruption fix. VP9 resizing still needs its validated
 state-preservation contract. H.264 interlacing is a feasibility
 question: the original reverse engineer reports hardware limitations. Do not
 promise to recover all 49 failing Main-profile vectors or assume a missing
