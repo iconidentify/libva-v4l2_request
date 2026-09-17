@@ -348,6 +348,13 @@ test('resource-churn', python3, args: [files('resource-churn.py'), 'self-test'],
 if find_program('ffmpeg', required: false).found() and dependency('libavformat', required: false).found() and dependency('libavcodec', required: false).found() and dependency('libavutil', required: false).found() and dependency('libswscale', required: false).found()
   test('resource-campaign', python3,
     args: files('resource-campaign-check.py'), timeout: 120)
+  libav_deps = [dependency('libavformat'), dependency('libavcodec'),
+                dependency('libavutil'), dependency('libswscale'), threads_dep]
+  concurrent_va_worker = executable('concurrent-va-worker', 'concurrent-va-worker.c',
+    dependencies: libav_deps)
+  test('concurrent-va-software', python3,
+       args: [files('concurrent-va-run.py'), '--self-test', concurrent_va_worker],
+       timeout: 120)
 endif
 test('rps-e-research', python3, args: files('rps-e-research.py'), timeout: 15)
 test('hevc-concurrent', python3, args: [files('hevc-concurrent.py'), '--self-test'], timeout: 15)

@@ -104,6 +104,13 @@ EndPicture; this does not establish that a media file can trigger the same API s
 CI also runs `frame-check.sh` in software to test resolution changes and truncated input;
 hardware tests are separate.
 
+`concurrent-va-worker` is a real FFmpeg/libva client (not the model
+`concurrent-stress` worker). Hosted CI runs `concurrent-va-run.py --self-test`
+in software: generated public lavfi H.264 clips, exact per-worker MD5s, process
+kill and missing-input negatives. Hardware mode requires `AV_PIX_FMT_VAAPI` and
+is documented in [../docs/CONCURRENT_VA_HARDWARE.md](../docs/CONCURRENT_VA_HARDWARE.md);
+it is not a meson hardware pass.
+
 Three resource-churn cases run 1,000 normal, early-export and held-derived-image
 lifecycles in one initialized fake driver. At cycles 100, 500 and 1,000, and
 after every intervening cycle, model descriptors, mappings, heap allocations and
