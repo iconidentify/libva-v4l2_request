@@ -21,6 +21,7 @@ VAStatus v4l2r_CreateBuffer(VADriverContextP va_ctx, VAContextID context_id,
 			    unsigned int num_elements, void *data,
 			    VABufferID *buf_id)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_buffer *buffer;
 	VABufferID id;
@@ -105,6 +106,7 @@ VAStatus v4l2r_BufferSetNumElements(VADriverContextP va_ctx, VABufferID buf_id,
 
 VAStatus v4l2r_MapBuffer(VADriverContextP va_ctx, VABufferID buf_id, void **pbuf)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_buffer *buffer;
 
@@ -121,6 +123,7 @@ VAStatus v4l2r_MapBuffer(VADriverContextP va_ctx, VABufferID buf_id, void **pbuf
 
 VAStatus v4l2r_UnmapBuffer(VADriverContextP va_ctx, VABufferID buf_id)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_buffer *buffer;
 
@@ -133,6 +136,7 @@ VAStatus v4l2r_UnmapBuffer(VADriverContextP va_ctx, VABufferID buf_id)
 
 VAStatus v4l2r_DestroyBuffer(VADriverContextP va_ctx, VABufferID buf_id)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_buffer *buffer;
 

@@ -80,6 +80,7 @@ static VAStatus image_setup_layout(VAImage *image, uint32_t fourcc,
 VAStatus v4l2r_CreateImage(VADriverContextP va_ctx, VAImageFormat *format,
 			   int width, int height, VAImage *image)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_image *image_object;
 	unsigned int pitch, chroma_offset;
@@ -250,6 +251,7 @@ VAStatus v4l2r_DeriveImage(VADriverContextP va_ctx, VASurfaceID surface_id,
 
 VAStatus v4l2r_DestroyImage(VADriverContextP va_ctx, VAImageID image_id)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	struct v4l2r_image *image_object;
 	VABufferID buffer_id;

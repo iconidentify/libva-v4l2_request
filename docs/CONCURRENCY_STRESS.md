@@ -15,11 +15,34 @@ runbook below; it has not been run as part of the offline work.
 ## What the offline harness proves — and what it cannot
 
 `tests/concurrent-stress.c` links the real driver sources against an in-memory
-model V4L2 device. There is no decoder, no kernel module and no real sleeping:
+model V4L2 device. There is no decoder or kernel module:
 the model completes queued requests after a seeded number of model-time ticks,
 and time only advances when the driver polls or reads its monotonic clock, so
-the schedules advance model waits without a real decoder. Multiple caller threads
-are launched, but this does not prove simultaneous execution inside driver calls.
+the schedules advance model waits without a real decoder.
+
+**The offline part of in-driver overlap (AC2) is measured inside the driver.**
+On one VA display, `api_mutex` serializes locked entrypoints. The hook counts
+outer unlocked calls that enter while another thread holds a locked section;
+unlocked calls can also overlap each other, which is outside this metric.
+Nested image/buffer helpers and calls inside the same thread's locked section
+are excluded. The global counters require a quiescent, single-display test;
+they are disabled by default, with one relaxed enabled-flag load per bracket.
+
+The `overlap` and `overlap-actor` cases hold stream 0's first model request.
+Other decoders wait for a latched release signal that remains set, so a delayed
+worker cannot miss the entire close/open interval and deadlock. The model poll
+confirms the selected reader is inside `vaSyncSurface` holding `api_mutex` before
+collecting evidence. The model clock stays frozen and short real sleeps pace
+this held window. A thread-local counter delta then requires at least eight
+outer unlocked calls from the selected decoder or failure actor during that
+window, excluding earlier traffic. The actor must also perform an invalid buffer
+map with the exact expected error. Only then may the gate release.
+
+`overlap-late` deliberately delays a decoder until after release; it reproduces
+the missed-pulse ordering that hung the original gate. `overlap-counters` checks
+that nested helpers and same-thread calls cannot inflate the evidence. Output
+includes `driver_overlap locked=… unlocked=… over=… max_locked=… max_unl=…
+gated_thread_events=…`; the last field is the selected worker's held-window delta.
 
 The schedules exercise the real public API surface the same way a threaded
 client does:
@@ -66,8 +89,12 @@ printed in each `rep` line):
 | `concurrent-threads-1/2/4` | `threads N 12 10` | `549203187` | 12 |
 | `concurrent-teardown-1/2/4` | `teardown N 12 10` | `812734691` | 12 |
 | `concurrent-failure-4` | `failure 4 12 10` | `3372110043` | 12 |
+| `concurrent-overlap-2` | `overlap 2 6 10` (in-driver gate) | `73204115` | 6 |
+| `concurrent-overlap-actor-2` | `overlap-actor 2 6 10` (actor fires into the gate) | `1946285037` | 6 |
 | `concurrent-processes-1/2/4` | `concurrent-process.py` (3 reps) | `0xC0FFEE` | 12 |
-| `concurrent-tsan` | TSan build, 6 schedules × 3 reps | per schedule | 12 |
+| `concurrent-overlap-late-2` | `overlap-late 2 6 10` (late waiter) | `73204115` | 6 |
+| `concurrent-overlap-counters` | outer-call and thread-ownership oracle | none | none |
+| `concurrent-tsan` | TSan build, 9 schedules × 3 reps plus counter oracle | per schedule | 12/6 |
 
 Each stream uses its own mixed profile (H.264/HEVC/VP9 model codecs), surface
 dimensions (64x48, 64x64, 128x96, 96x64), a seeded surface rotation and seeded
@@ -84,7 +111,8 @@ Deterministic lifetime events and remaining overlap evidence:
   verified, and survivor reads wait for completed teardown.
 * The first-call rendezvous coordinates callers **outside** the driver. The earlier
   `overlap=` metric counted that barrier and has been removed. It did not prove #36
-  AC2. Instrumented overlap inside locked/unlocked operations remains open on #36.
+  AC2. The held-window instrumentation above now covers the offline part; real
+  hardware overlap remains unqualified.
 * The failure actor checks a foreign surface while its owner's context is alive.
   Its handshake proves lifetime ordering only: an unfinished reader may be waiting
   for teardown, so it cannot establish concurrent active API work.
@@ -196,4 +224,24 @@ in the maintainer integration. Unknown TSan failures now fail; only enumerated
 startup incompatibilities skip. Compiler commands with arguments are parsed as an
 argument vector and used consistently for probe and build. Hermetic regressions
 exercise startup classification and actual cancellation/cleanup. #36 stays open for
-instrumented in-driver overlap, the real VA-API worker, and guarded hardware runs.
+the real VA-API worker and guarded hardware runs. The subsequent #86 integration
+adds the offline held-window overlap evidence above.
+
+
+### Adversarial review of #86
+
+The contributor gate could miss its close/open pulse and wait forever, reproduced
+with a deliberately delayed worker and consistent with the failing oldest-UAPI
+CI job. Whole-repetition counters could also satisfy the gate with earlier or
+other-thread calls, and nested image/buffer helpers inflated call counts. The
+latched release, identified sync waiter, per-worker delta, exact actor error and
+counter oracle address these findings. Maintainer corrections were self-reviewed;
+this is not a claim of an independent second review of those corrections.
+
+The original mixed-codec CI failure also exposed a resource-test timing assumption:
+50 ms did not ensure an early-exit fixture had exited. The fixture now establishes
+that condition explicitly. During review of that path, the existing resource
+sampler was found to reap its owned group leader before the final group signal.
+It now observes exit without reaping, reserves the group ID through the final
+signal, and tests successful/failed leaders plus a surviving descendant. No
+hardware evidence or codec support count is changed by these offline fixes.

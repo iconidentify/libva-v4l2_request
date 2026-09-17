@@ -31,6 +31,7 @@ VAStatus v4l2r_CreateSurfaces2(VADriverContextP va_ctx, unsigned int format,
 			       VASurfaceAttrib *attrib_list,
 			       unsigned int num_attribs)
 {
+	V4L2R_OVERLAP_UNLOCKED();
 	struct v4l2r_driver *drv = v4l2r_driver(va_ctx);
 	uint32_t fourcc = 0;
 	unsigned int i;

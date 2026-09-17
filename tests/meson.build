@@ -161,6 +161,19 @@ foreach case : ['1', '2', '4']
 endforeach
 test('concurrent-failure-4', concurrent_stress,
      args: ['failure', '4', '12', '10', '3372110043'], timeout: 120)
+# In-driver overlap gates (issue #36 AC2): stream 0's frame 0 is held by
+# the model device so a vaSyncSurface spins inside the driver holding
+# api_mutex, and the required unlocked entrypoint executions are
+# recorded by the driver-side instrumentation (v4l2r_overlap_*) — fired
+# by the decoder here, by the failure actor in the actor variant.
+test('concurrent-overlap-2', concurrent_stress,
+     args: ['overlap', '2', '6', '10', '73204115'], timeout: 120)
+test('concurrent-overlap-actor-2', concurrent_stress,
+     args: ['overlap-actor', '2', '6', '10', '1946285037'], timeout: 120)
+test('concurrent-overlap-late-2', concurrent_stress,
+     args: ['overlap-late', '2', '6', '10', '73204115'], timeout: 120)
+test('concurrent-overlap-counters', concurrent_stress,
+     args: ['overlap-counters'], timeout: 30)
 
 picture = executable('picture', 'picture.c', driver_sources,
   c_args: ['-UNDEBUG'],

@@ -29,6 +29,21 @@
  *   worker ID FRAMES SEED        Single-stream process mode for the
  *                                multi-process schedule driven by
  *                                tests/concurrent-process.py.
+ *   overlap N FRAMES REPS SEED    The same flow, plus a deterministic
+ *                                in-driver overlap proof: stream 0's
+ *                                frame 0 is held by the model gate so
+ *                                its reader's vaSyncSurface spins
+ *                                inside the driver holding api_mutex
+ *                                (a real locked section), while the
+ *                                decoder fires unlocked entrypoints
+ *                                into it until the driver-side
+ *                                instrumentation
+ *                                (v4l2r_overlap_snapshot()) has
+ *                                recorded the required overlap events.
+ *   overlap-actor N FRAMES REPS  The same gate, but the failure
+ *                                actor's own unlocked operations are
+ *                                the ones that must overlap the
+ *                                locked section in the driver.
  *
  * The model device is the decode oracle: the slice bytes a stream
  * renders into a picture are hashed by the model when the request is
@@ -284,6 +299,10 @@ struct plane {
 
 struct inflight {
     bool used;
+    /* Held by the overlap gate: a request the harness refuses to let
+     * complete, so a vaSyncSurface for it spins inside the driver while
+     * holding api_mutex (the deterministic in-driver overlap window). */
+    bool held;
     unsigned video_slot;
     int output_index;
     int capture_index;
@@ -333,6 +352,19 @@ static uint64_t model_now(void)
     return atomic_load_explicit(&model_clock, memory_order_relaxed);
 }
 
+/* Overlap gate: while closed, requests queued on the gate's video fd are
+ * held (never retired), and polling that fd stays "ready" so the driver's
+ * dequeue loop spins inside vaSyncSurface — a real in-driver section that
+ * holds api_mutex for a controlled window. Opened by the harness after
+ * the in-driver overlap events are recorded. */
+static _Atomic bool model_gate_closed;
+/* Latched release: a delayed decoder must not have to observe a short
+ * closed->open pulse. The poll handshake identifies the actual held sync. */
+static _Atomic bool model_gate_opened;
+static _Atomic bool model_gate_sync_waiting;
+static _Thread_local bool model_gate_sync_reader;
+static _Atomic unsigned long model_gate_proven_events;
+
 static void model_retire(uint64_t now)
 {
     for (unsigned s = 0; s < model.fd_count; s++) {
@@ -340,6 +372,8 @@ static void model_retire(uint64_t now)
         struct plane *plane;
 
         if (!f->used || f->complete_ns > now)
+            continue;
+        if (f->held && atomic_load(&model_gate_closed))
             continue;
         struct model_fd *video = &model.fds[f->video_slot];
         video->output_ready |= 1u << f->output_index;
@@ -355,11 +389,24 @@ static void model_retire(uint64_t now)
     }
 }
 
+/* Any request held by the gate on this video fd? */
+static bool model_gate_holds(unsigned video_slot)
+{
+    if (!atomic_load(&model_gate_closed))
+        return false;
+    for (unsigned s = 0; s < model.fd_count; s++)
+        if (model.queue[s].used && model.queue[s].held &&
+            model.queue[s].video_slot == video_slot)
+            return true;
+    return false;
+}
+
 static uint64_t model_next_deadline(void)
 {
     uint64_t next = 0;
     for (unsigned s = 0; s < model.fd_count; s++)
         if (model.queue[s].used &&
+            !(model.queue[s].held && atomic_load(&model_gate_closed)) &&
             (!next || model.queue[s].complete_ns < next))
             next = model.queue[s].complete_ns;
     return next;
@@ -745,6 +792,7 @@ int __wrap_ioctl(int fd, unsigned long request, ...)
         hash = fnv1a64(bitstream->mem, r->request_bytesused);
         model.queue[slot] = (struct inflight) {
             .used = true,
+            .held = atomic_load(&model_gate_closed),
             .video_slot = (unsigned)r->request_video,
             .output_index = r->request_output,
             .capture_index = (int)r->request_target - 1,
@@ -852,6 +900,22 @@ int __wrap_poll(struct pollfd *fds, nfds_t count, int timeout)
                 ready = true;
             if ((fds[0].events & POLLOUT) && f->output_ready)
                 ready = true;
+            if (!ready && model_gate_holds(slot)) {
+                /* Hold the caller inside the driver with bounded real
+                 * sleeping instead of a busy spin, so the gate window
+                 * cannot starve the threads that must fire the overlap
+                 * events. The frozen model clock keeps the caller's own
+                 * poll deadline from expiring meanwhile, and the fd is
+                 * reported ready with nothing to dequeue: the driver's
+                 * wait loop stays inside the locked entrypoint, which
+                 * is exactly the controlled in-driver window. */
+                pthread_mutex_unlock(&model.mutex);
+                if (model_gate_sync_reader)
+                    atomic_store(&model_gate_sync_waiting, true);
+                usleep(500);
+                fds[0].revents = fds[0].events;
+                return 1;
+            }
         } else {
             ready = true;
         }
@@ -890,9 +954,22 @@ int __wrap_clock_gettime(clockid_t clock, struct timespec *ts)
     if (clock == CLOCK_MONOTONIC) {
         /* The driver measures waits and deadlines on this clock; tick
          * the model forward a microsecond per read so duration
-         * bookkeeping stays nonzero without real sleeping. */
-        uint64_t ns = atomic_fetch_add_explicit(&model_clock, 1000,
-                                                 memory_order_relaxed) + 1000;
+         * bookkeeping stays nonzero without real sleeping. While the
+         * overlap gate is closed the clock is frozen: the gated
+         * vaSyncSurface spins in a poll loop whose every iteration
+         * reads the clock, and its own 2000 ms model deadline must not
+         * run out while the harness collects the in-driver overlap
+         * events. Nothing else needs model time with the gate closed
+         * (held requests cannot complete, and other callers block on
+         * api_mutex); the real-time watchdog still bounds the window. */
+        uint64_t ns;
+
+        if (atomic_load(&model_gate_closed))
+            ns = atomic_load_explicit(&model_clock,
+                                      memory_order_relaxed);
+        else
+            ns = atomic_fetch_add_explicit(&model_clock, 1000,
+                                           memory_order_relaxed) + 1000;
         ts->tv_sec = (time_t)(ns / 1000000000ull);
         ts->tv_nsec = (long)(ns % 1000000000ull);
         return 0;
@@ -1027,7 +1104,8 @@ static void driver_teardown(void)
  * sleeps, so this only fires on a genuine deadlock or livelock. */
 #define REP_DEADLINE_SECONDS 60
 
-enum schedule_id { SCHED_THREADS, SCHED_TEARDOWN, SCHED_FAILURE, SCHED_WORKER };
+enum schedule_id { SCHED_THREADS, SCHED_TEARDOWN, SCHED_FAILURE, SCHED_WORKER,
+                   SCHED_OVERLAP, SCHED_OVERLAP_ACTOR };
 
 struct stream {
     unsigned index;
@@ -1072,6 +1150,14 @@ struct rep_state {
     uint64_t seed;
     enum schedule_id schedule;
     struct stream *victim; /* SCHED_TEARDOWN: stream destroyed mid-decode */
+    /* SCHED_OVERLAP*: this stream's frame 0 is held by the model gate
+     * while unlocked operations are proven to execute inside the
+     * driver during its reader's spinning vaSyncSurface. */
+    struct stream *gate_stream;
+    /* In-driver overlap events the gate round must record before the
+     * gate opens. */
+    unsigned long overlap_target;
+    bool late_waiter;
 };
 
 static struct rep_state rep;
@@ -1161,11 +1247,52 @@ static void stream_destroy_now(struct stream *s)
  * not measure overlapping execution inside API entrypoints. */
 static _Atomic unsigned api_rendezvous_arrived;
 
+/* Failure-actor setup barrier for the overlap-actor round: the gate
+ * decoder waits for this before closing the model gate, so the actor's
+ * context setup can never block on the gated in-driver section. */
+static _Atomic bool actor_setup_done;
+
 static void api_rendezvous_decoders(void)
 {
     atomic_fetch_add(&api_rendezvous_arrived, 1);
     while (atomic_load(&api_rendezvous_arrived) < rep.n_streams)
         usleep(50);
+}
+
+/* Fire unlocked entrypoints into the gated in-driver section until the
+ * driver has recorded the required number of in-driver overlap events.
+ * Only unlocked calls belong here: every locked entrypoint would block
+ * on the api_mutex the gated section holds (that blocking is itself the
+ * serialization the round observes). */
+static void fire_overlap_unlocked_ops(struct stream *s)
+{
+    VAImageFormat format = { .fourcc = VA_FOURCC_NV12 };
+    unsigned char bytes[FRAME_BYTES] = { 0 };
+
+    unsigned long before = v4l2r_overlap_thread_events();
+
+    while (v4l2r_overlap_thread_events() - before < rep.overlap_target) {
+        VABufferID id;
+        VAImage image;
+        VASurfaceID surfaces[2];
+        void *data;
+
+        assert(v4l2r_CreateBuffer(&va_ctx, s->context,
+                                 VASliceDataBufferType, FRAME_BYTES, 1,
+                                 bytes, &id) == VA_STATUS_SUCCESS);
+        assert(v4l2r_MapBuffer(&va_ctx, id, &data) == VA_STATUS_SUCCESS);
+        assert(v4l2r_UnmapBuffer(&va_ctx, id) == VA_STATUS_SUCCESS);
+        assert(v4l2r_DestroyBuffer(&va_ctx, id) == VA_STATUS_SUCCESS);
+        assert(v4l2r_CreateImage(&va_ctx, &format, 64, 48, &image) ==
+               VA_STATUS_SUCCESS);
+        assert(v4l2r_DestroyImage(&va_ctx, image.image_id) ==
+               VA_STATUS_SUCCESS);
+        assert(v4l2r_CreateSurfaces2(&va_ctx, VA_RT_FORMAT_YUV420, 64, 48,
+                                    surfaces, 2, NULL, 0) ==
+               VA_STATUS_SUCCESS);
+    }
+    atomic_store(&model_gate_proven_events,
+                 v4l2r_overlap_thread_events() - before);
 }
 
 static void *decoder_thread(void *arg)
@@ -1195,8 +1322,35 @@ static void *decoder_thread(void *arg)
             if (atomic_load(&s->teardown_requested))
                 break;
         }
-        if (frame == 0)
+        if (frame == 0) {
             api_rendezvous_decoders();
+            if (rep.gate_stream == s) {
+                /* The overlap gate closes after the rendezvous so every
+                 * request queued from here on is held: this stream's
+                 * frame 0 cannot complete, and its reader's
+                 * vaSyncSurface will spin inside the driver. */
+                if (rep.schedule == SCHED_OVERLAP_ACTOR) {
+                    while (!atomic_load(&actor_setup_done))
+                        usleep(50);
+                }
+                atomic_store(&model_gate_closed, true);
+            } else if (rep.gate_stream) {
+                /* Only the gate stream may have a request held. Any
+                 * other reader that synced a held request would spin
+                 * inside the driver holding api_mutex while the gate
+                 * decoder still needs that mutex to finish its own
+                 * gated picture — a circular deadlock. Wait for the
+                 * latched release: a transient close/open pulse can be
+                 * missed entirely by a descheduled worker. */
+                /* Regression schedule: deliberately arrive after the
+                 * entire close/open pulse, as a descheduled caller can. */
+                if (rep.late_waiter)
+                    while (!atomic_load(&model_gate_opened))
+                        usleep(50);
+                while (!atomic_load(&model_gate_opened))
+                    usleep(50);
+            }
+        }
         st = table.vaBeginPicture(&va_ctx, s->context, sid);
         if (st != VA_STATUS_SUCCESS) {
             /* Only a concurrent teardown of this context may abort a
@@ -1246,6 +1400,24 @@ static void *decoder_thread(void *arg)
         }
         assert(v4l2r_DestroyBuffer(&va_ctx, slice) == VA_STATUS_SUCCESS);
         publish_frame(s, frame);
+        if (rep.gate_stream == s && frame == 0) {
+            /* The reader's vaSyncSurface for the held frame is now
+             * spinning inside the driver, holding api_mutex: a real
+             * in-driver locked section, not a caller-side window.
+             * Record the required in-driver overlap events against it
+             * (this decoder fires them in the overlap round; the
+             * failure actor does in the overlap-actor round), then open
+             * the gate so the held request completes. */
+            while (!atomic_load(&model_gate_sync_waiting))
+                usleep(50);
+            if (rep.schedule == SCHED_OVERLAP)
+                fire_overlap_unlocked_ops(s);
+            else
+                while (atomic_load(&model_gate_proven_events) < rep.overlap_target)
+                    usleep(50);
+            atomic_store(&model_gate_closed, false);
+            atomic_store(&model_gate_opened, true);
+        }
     }
     pthread_mutex_lock(&s->lock);
     s->decoder_done = true;
@@ -1353,7 +1525,9 @@ static void *reader_thread(void *arg)
         if (wait_published(s, frame) <= frame)
             break; /* decoder stopped early (teardown victim) */
         sid = s->surfaces[(frame + s->rotate) % STREAM_SURFACES];
+        model_gate_sync_reader = rep.gate_stream == s && frame == 0;
         st = table.vaSyncSurface(&va_ctx, sid);
+        model_gate_sync_reader = false;
         if (st != VA_STATUS_SUCCESS) {
             /* Only the mid-decode teardown victim may lose a frame;
              * everything already published must complete. */
@@ -1579,25 +1753,59 @@ static void actor_fault(const struct actor_objects *own, uint64_t *rng)
     }
 }
 
+/* Unlocked-only fault for the gated overlap window: while the gated
+ * vaSyncSurface holds api_mutex inside the driver, every locked
+ * entrypoint (including the actor's) would block on it — which is the
+ * serialization being observed, not a fault the actor can deliver. */
+static void actor_unlocked_fault(const struct actor_objects *own, uint64_t *rng)
+{
+    VAImageFormat format = { .fourcc = VA_FOURCC_NV12 };
+    VAImage image;
+    VASurfaceID surfaces[2];
+    VABufferID id;
+    unsigned char bytes[FRAME_BYTES] = { 0 };
+    void *data;
+
+    switch ((unsigned)(splitmix64(rng) % 4)) {
+    case 0:
+        assert(v4l2r_MapBuffer(&va_ctx, (VABufferID)0x8000beef, &data) !=
+               VA_STATUS_SUCCESS);
+        break;
+    case 1:
+        assert(v4l2r_CreateImage(&va_ctx, &format, 64, 48, &image) ==
+               VA_STATUS_SUCCESS);
+        assert(v4l2r_DestroyImage(&va_ctx, image.image_id) ==
+               VA_STATUS_SUCCESS);
+        break;
+    case 2:
+        /* No DestroySurfaces here: it is a locked entrypoint. The
+         * surfaces free with the handle table at repetition end. */
+        assert(v4l2r_CreateSurfaces2(&va_ctx, VA_RT_FORMAT_YUV420, 64, 48,
+                                    surfaces, 2, NULL, 0) ==
+               VA_STATUS_SUCCESS);
+        break;
+    default:
+        assert(v4l2r_CreateBuffer(&va_ctx, own->context,
+                                 VASliceDataBufferType, FRAME_BYTES, 1,
+                                 bytes, &id) == VA_STATUS_SUCCESS);
+        assert(v4l2r_DestroyBuffer(&va_ctx, id) == VA_STATUS_SUCCESS);
+        break;
+    }
+}
+
 static void *actor_thread(void *arg)
 {
     struct actor_objects own;
     uint64_t rng = rep.seed ^ 0x0f001cafeull;
     unsigned faults = 0;
+    VAStatus st;
 
     (void)arg;
 
-    /* The foreign-surface busy check needs stream 0's first surface
-     * bound to its context (its first frame verified). It is a one-shot
-     * right after that point: once stream 0's context is destroyed the
-     * surface detaches, and a BeginPicture on a detached surface would
-     * legitimately stage a picture on this context instead of failing
-     * busy. */
-    pthread_mutex_lock(&rep.streams[0].lock);
-    while (rep.streams[0].verified < 1 && !rep.streams[0].reader_done)
-        pthread_cond_wait(&rep.streams[0].published_cv, &rep.streams[0].lock);
-    pthread_mutex_unlock(&rep.streams[0].lock);
-
+    /* Setup before anything else: in the overlap-actor round the gate
+     * decoder waits for actor_setup_done before closing the model
+     * gate, so none of these calls can block on the gated in-driver
+     * section. */
     own.config = v4l2r_handles_alloc(&drv.configs,
                                      sizeof(struct v4l2r_config));
     assert(own.config != VA_INVALID_ID);
@@ -1610,9 +1818,52 @@ static void *actor_thread(void *arg)
     assert(table.vaCreateContext(&va_ctx, own.config, 64, 48, 0,
                                  &own.surface, 1, &own.context) ==
            VA_STATUS_SUCCESS);
+    atomic_store(&actor_setup_done, true);
+
+    if (rep.schedule == SCHED_OVERLAP_ACTOR) {
+        /* Wait until the chosen reader is polling inside SyncSurface
+         * with api_mutex held, not merely until the model gate closes. */
+        struct timespec pace = { 0, 100000 };
+
+        while (!atomic_load(&model_gate_sync_waiting))
+            nanosleep(&pace, NULL);
+        unsigned long before = v4l2r_overlap_thread_events();
+        void *invalid_data;
+        /* Guarantee a failing actor operation in the held sync window;
+         * random valid object churn is not itself a failure actor. */
+        assert(v4l2r_MapBuffer(&va_ctx, (VABufferID)0x8000beef,
+                              &invalid_data) == VA_STATUS_ERROR_INVALID_BUFFER);
+        faults++;
+        /* While the gate is closed, this actor's unlocked operations
+         * are the ones executing inside the driver during the gated
+         * locked section — the in-driver failure-actor overlap this
+         * round proves. The gate decoder opens the gate once the
+         * driver has recorded the required events. */
+        while (v4l2r_overlap_thread_events() - before < rep.overlap_target) {
+            actor_unlocked_fault(&own, &rng);
+            faults++;
+            nanosleep(&pace, NULL);
+        }
+        atomic_store(&model_gate_proven_events,
+                     v4l2r_overlap_thread_events() - before);
+        while (!atomic_load(&model_gate_opened))
+            nanosleep(&pace, NULL);
+    }
+
+    /* The foreign-surface busy check needs stream 0's first surface
+     * bound to its context (its first frame verified). It is a one-shot
+     * right after that point: once stream 0's context is destroyed the
+     * surface detaches, and a BeginPicture on a detached surface would
+     * legitimately stage a picture on this context instead of failing
+     * busy. */
+    pthread_mutex_lock(&rep.streams[0].lock);
+    while (rep.streams[0].verified < 1 && !rep.streams[0].reader_done)
+        pthread_cond_wait(&rep.streams[0].published_cv, &rep.streams[0].lock);
+    pthread_mutex_unlock(&rep.streams[0].lock);
+
     /* Keep stream 0 alive until this check completes. This proves lifetime
      * ordering, not simultaneous progress inside another API call. */
-    VAStatus st = table.vaBeginPicture(&va_ctx, own.context,
+    st = table.vaBeginPicture(&va_ctx, own.context,
            rep.streams[0].surfaces[rep.streams[0].rotate]);
     assert(st == VA_STATUS_ERROR_SURFACE_BUSY);
     faults++;
@@ -1684,11 +1935,22 @@ static void run_rep(void)
     pthread_t threads[MAX_STREAMS * 2 + 3];
     unsigned n_threads = 0;
     struct timespec now;
+    struct v4l2r_overlap_stats overlap;
 
     driver_setup();
     model_reset(rep.seed);
-    atomic_store(&actor_one_shot_done, rep.schedule != SCHED_FAILURE);
+    atomic_store(&actor_one_shot_done, rep.schedule != SCHED_FAILURE &&
+                 rep.schedule != SCHED_OVERLAP_ACTOR);
+    atomic_store(&actor_setup_done, false);
+    atomic_store(&model_gate_closed, false);
+    atomic_store(&model_gate_opened, false);
+    atomic_store(&model_gate_sync_waiting, false);
+    atomic_store(&model_gate_proven_events, 0);
     atomic_store(&api_rendezvous_arrived, 0);
+    /* In-driver concurrency instrumentation on for the whole
+     * repetition: every schedule asserts the serialization invariant,
+     * and the overlap rounds assert the in-driver overlap events. */
+    v4l2r_overlap_configure(true);
     for (unsigned i = 0; i < rep.n_streams; i++)
         stream_setup(&rep.streams[i], rep.base_index + i, rep.frames,
                      rep.seed);
@@ -1707,7 +1969,7 @@ static void run_rep(void)
                               reader_thread, &rep.streams[i]) == 0);
     assert(pthread_create(&threads[n_threads++], NULL,
                           destroyer_thread, NULL) == 0);
-    if (rep.schedule == SCHED_FAILURE)
+    if (rep.schedule == SCHED_FAILURE || rep.schedule == SCHED_OVERLAP_ACTOR)
         assert(pthread_create(&threads[n_threads++], NULL,
                               actor_thread, NULL) == 0);
 
@@ -1732,9 +1994,30 @@ static void run_rep(void)
         }
     }
 
+    /* Driver-side concurrency evidence (AC2): api_mutex must serialize
+     * the locked entrypoints (max one active section, every schedule),
+     * and the overlap rounds require the gated locked section to have
+     * executed in the driver concurrently with the required number of
+     * unlocked entrypoint executions. */
+    overlap = v4l2r_overlap_snapshot();
+    assert(overlap.max_locked_active == 1);
+    if (rep.schedule == SCHED_OVERLAP || rep.schedule == SCHED_OVERLAP_ACTOR) {
+        assert(atomic_load(&model_gate_sync_waiting));
+        assert(atomic_load(&model_gate_proven_events) >= rep.overlap_target);
+        assert(overlap.unlocked_over_locked >= rep.overlap_target);
+        assert(overlap.max_unlocked_during_locked >= 1);
+    }
+    v4l2r_overlap_configure(false);
+
     pthread_mutex_lock(&model.mutex);
-    printf("rep ioctls=%u polls=%u completions=%u\n",
-           model.ioctls, model.polls, model.completions);
+    printf("rep ioctls=%u polls=%u completions=%u "
+           "driver_overlap locked=%lu unlocked=%lu over=%lu "
+           "max_locked=%u max_unl=%u gated_thread_events=%lu\n",
+           model.ioctls, model.polls, model.completions,
+           overlap.locked_sections, overlap.unlocked_calls,
+           overlap.unlocked_over_locked, overlap.max_locked_active,
+           overlap.max_unlocked_during_locked,
+           atomic_load(&model_gate_proven_events));
     pthread_mutex_unlock(&model.mutex);
     for (unsigned i = 0; i < rep.n_streams; i++)
         print_stream_result(&rep.streams[i]);
@@ -1755,10 +2038,56 @@ static void usage(const char *program)
         "  %s threads N FRAMES REPS SEED\n"
         "  %s teardown N FRAMES REPS SEED\n"
         "  %s failure N FRAMES REPS SEED\n"
+        "  %s overlap N FRAMES REPS SEED\n"
+        "  %s overlap-actor N FRAMES REPS SEED\n"
+        "  %s overlap-late N FRAMES REPS SEED\n"
+        "  %s overlap-counters\n"
         "  %s worker ID FRAMES SEED\n"
         "N in 1..4, FRAMES in 2..%d (the teardown midpoint needs >= 2), REPS >= 1.\n",
-        program, program, program, program, MAX_FRAMES);
+        program, program, program, program, program, program, program, program, MAX_FRAMES);
     exit(2);
+}
+
+static void *counter_worker(void *unused)
+{
+    VAImageFormat format = { .fourcc = VA_FOURCC_NV12 };
+    VAImage image;
+    unsigned long before = v4l2r_overlap_thread_events();
+
+    (void)unused;
+    assert(v4l2r_CreateImage(&va_ctx, &format, 64, 48, &image) == VA_STATUS_SUCCESS);
+    assert(v4l2r_DestroyImage(&va_ctx, image.image_id) == VA_STATUS_SUCCESS);
+    assert(v4l2r_overlap_thread_events() - before == 2);
+    return NULL;
+}
+
+static void check_overlap_counters(void)
+{
+    VAImageFormat format = { .fourcc = VA_FOURCC_NV12 };
+    VAImage image;
+    pthread_t thread;
+    struct v4l2r_overlap_stats stats;
+
+    driver_setup();
+    model_reset(1);
+    v4l2r_overlap_configure(true);
+    pthread_mutex_lock(&drv.api_mutex);
+    v4l2r_overlap_locked_enter();
+    /* Same-thread internal calls cannot establish cross-thread overlap. */
+    assert(v4l2r_CreateImage(&va_ctx, &format, 64, 48, &image) == VA_STATUS_SUCCESS);
+    assert(v4l2r_DestroyImage(&va_ctx, image.image_id) == VA_STATUS_SUCCESS);
+    assert(v4l2r_overlap_snapshot().unlocked_over_locked == 0);
+    assert(pthread_create(&thread, NULL, counter_worker, NULL) == 0);
+    assert(pthread_join(thread, NULL) == 0);
+    v4l2r_overlap_locked_exit();
+    pthread_mutex_unlock(&drv.api_mutex);
+    stats = v4l2r_overlap_snapshot();
+    /* Nested Create/DestroyBuffer are helpers, not additional callers. */
+    assert(stats.unlocked_calls == 2 && stats.unlocked_over_locked == 2);
+    assert(stats.max_locked_active == 1 && stats.max_unlocked_during_locked == 1);
+    v4l2r_overlap_configure(false);
+    driver_teardown();
+    puts("overlap counter ownership/nesting: PASS");
 }
 
 int main(int argc, char **argv)
@@ -1773,6 +2102,10 @@ int main(int argc, char **argv)
     assert(pthread_mutex_init(&model.mutex, NULL) == 0);
     if (argc < 2)
         usage(argv[0]);
+    if (!strcmp(argv[1], "overlap-counters") && argc == 2) {
+        check_overlap_counters();
+        return 0;
+    }
 
     if (!strcmp(argv[1], "threads")) {
         schedule = SCHED_THREADS;
@@ -1782,6 +2115,10 @@ int main(int argc, char **argv)
         schedule = SCHED_FAILURE;
     } else if (!strcmp(argv[1], "worker")) {
         schedule = SCHED_WORKER;
+    } else if (!strcmp(argv[1], "overlap") || !strcmp(argv[1], "overlap-late")) {
+        schedule = SCHED_OVERLAP;
+    } else if (!strcmp(argv[1], "overlap-actor")) {
+        schedule = SCHED_OVERLAP_ACTOR;
     } else {
         usage(argv[0]);
         return 2;
@@ -1818,6 +2155,7 @@ int main(int argc, char **argv)
 
     memset(&rep, 0, sizeof(rep));
     rep.schedule = schedule;
+    rep.late_waiter = !strcmp(argv[1], "overlap-late");
     rep.n_streams = n_streams;
     rep.frames = frames;
     /* Worker mode: the single stream carries the worker id's recipe
@@ -1825,6 +2163,15 @@ int main(int argc, char **argv)
      * produces an independently derived, distinct digest. */
     rep.base_index = schedule == SCHED_WORKER ? worker_id : 0;
     rep.victim = schedule == SCHED_TEARDOWN ? &rep.streams[0] : NULL;
+    /* Overlap rounds: stream 0's frame 0 is held by the model gate
+     * while the required number of unlocked entrypoint executions is
+     * recorded inside the driver against the spinning locked section
+     * (fired by the decoder in the overlap round, by the failure actor
+     * in the overlap-actor round). */
+    if (schedule == SCHED_OVERLAP || schedule == SCHED_OVERLAP_ACTOR) {
+        rep.gate_stream = &rep.streams[0];
+        rep.overlap_target = 8;
+    }
 
     printf("schedule %s streams=%u frames=%u reps=%u seed=%#llx\n",
            argv[1], n_streams, frames, reps,

@@ -211,6 +211,47 @@ def validate_options(count, interval, limits, acceptance, warmup, exit_timeout):
         raise ValueError("acceptance mode requires --max-rss-growth-kib")
 
 
+def workload_status(process, process_group=False):
+    """Keep a group leader waitable until all signals to its group are done."""
+    if not process_group or process.returncode is not None:
+        return process.poll()
+    status = os.waitid(os.P_PID, process.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT)
+    if status is None:
+        return None
+    return status.si_status if status.si_code == os.CLD_EXITED else -status.si_status
+
+
+def wait_workload(process, timeout, process_group=False):
+    if not process_group:
+        return process.wait(timeout=timeout)
+    deadline = time.monotonic() + timeout
+    while True:
+        status = workload_status(process, True)
+        if status is not None:
+            return status
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise subprocess.TimeoutExpired(process.args, timeout)
+        time.sleep(min(remaining, 0.01))
+
+
+def group_has_live_members(group):
+    # killpg(group, 0) also sees our unreaped zombie leader. Ignore zombies
+    # when deciding whether cleanup was forced, but retain the leader's PID.
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            fields = (entry / "stat").read_text().rsplit(") ", 1)[1].split()
+            if int(fields[2]) == group and fields[0] not in ("Z", "X"):
+                return True
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        except (OSError, ValueError, IndexError):
+            return True  # Fail closed if live descendants cannot be ruled out.
+    return False
+
+
 def stop_workload(process, timeout, process_group=False):
     """Bounded cleanup of a workload we spawned; never used for monitor --pid."""
     # record() and its caller both have exception cleanup. Once this group is
@@ -218,44 +259,51 @@ def stop_workload(process, timeout, process_group=False):
     if process_group and getattr(process, "_resource_group_released", False):
         return False
 
-    def release_group():
-        if process_group:
-            process._resource_group_released = True
-
-    def alive():
-        if not process_group:
-            return process.poll() is None
-        process.poll()  # Reap the direct child before checking its group.
+    if process_group:
+        # A reaped leader no longer reserves its numeric process-group ID.
+        # Never inspect or signal that ID, even on the first cleanup attempt.
         try:
-            os.killpg(process.pid, 0)
-            return True
-        except ProcessLookupError:
+            if process.returncode is not None:
+                raise ChildProcessError()
+            workload_status(process, True)
+        except ChildProcessError:
+            process._resource_group_released = True
             return False
+        forced = group_has_live_members(process.pid)
+        if forced:
+            os.killpg(process.pid, signal.SIGTERM)
+            deadline = time.monotonic() + timeout
+            while group_has_live_members(process.pid) and time.monotonic() < deadline:
+                time.sleep(min(0.01, max(0, deadline - time.monotonic())))
+        # Signal before reaping, including when the leader exited naturally.
+        # The waitable leader reserves this ID through our final signal.
+        os.killpg(process.pid, signal.SIGKILL)
+        try:
+            process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            pass  # Never hang on an unkillable task or signal this group again.
+        process._resource_group_released = True
+        return forced
 
     def send(sig):
         try:
-            if process_group:
-                os.killpg(process.pid, sig)
-            else:
-                process.send_signal(sig)
+            process.send_signal(sig)
         except ProcessLookupError:
             pass
 
-    if not alive():
-        release_group()
+    if process.poll() is not None:
         return False
     send(signal.SIGTERM)
     try:
         process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         pass
-    if alive():
+    if process.poll() is None:
         send(signal.SIGKILL)
     try:
         process.wait(timeout=timeout)
     except subprocess.TimeoutExpired:
         pass  # The result is already a failure; never hang on an unkillable task.
-    release_group()
     return True
 
 
@@ -306,7 +354,7 @@ def _record(pid, output, count, interval, limits, acceptance, process,
         if warmup and not errors:
             time.sleep(warmup)
         for index in range(count):
-            if errors or (process is not None and process.poll() is not None):
+            if errors or (process is not None and workload_status(process, process_group) is not None):
                 break
             try:
                 sample = snapshot(pid)
@@ -337,7 +385,7 @@ def _record(pid, output, count, interval, limits, acceptance, process,
                 "recorded {} of {} requested samples".format(len(samples), count))
         if process is not None:
             try:
-                result["exit_status"] = process.wait(timeout=exit_timeout)
+                result["exit_status"] = wait_workload(process, exit_timeout, process_group)
             except subprocess.TimeoutExpired:
                 result["exit_status"] = None
                 result["violations"].append(
@@ -428,6 +476,9 @@ def self_test():
 
     with tempfile.TemporaryDirectory() as directory:
         process = subprocess.Popen([sys.executable, "-c", "pass"])
+        # A fixed 50 ms warmup does not guarantee that Python has exited on
+        # a loaded CI runner. Establish the early-exit condition explicitly.
+        assert process.wait(timeout=5) == 0
         partial = record(process.pid, Path(directory) / "partial.jsonl", 2, 0.01,
                          {"fds": 0, "maps": 0, "mapped_bytes": 0,
                           "vmrss_kib": 1024, "dmabuf_references": 0,
@@ -450,10 +501,32 @@ def regression_tests(baseline):
     # must not be consulted again even if the OS has since recycled that number.
     completed = subprocess.Popen([sys.executable, "-c", "pass"], start_new_session=True)
     assert completed.wait(timeout=3) == 0
-    with mock.patch.object(os, "killpg", side_effect=ProcessLookupError()):
+    with mock.patch.object(os, "killpg", side_effect=AssertionError("signalled a reaped leader")):
         assert not stop_workload(completed, 0.05, True)
     with mock.patch.object(os, "killpg", side_effect=AssertionError("revisited a released group")):
         assert not stop_workload(completed, 0.05, True)
+
+    # Successful and failed leaders must still be waitable at EVERY group
+    # signal, including the final kill. No timing assumption or recycled PID.
+    real_killpg = os.killpg
+    for status in (0, 3):
+        child = subprocess.Popen([sys.executable, "-c", "raise SystemExit({})".format(status)],
+                                 start_new_session=True)
+        signals = []
+
+        def owned_signal(group, sig):
+            assert group == child.pid and child.returncode is None
+            assert os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOHANG | os.WNOWAIT) is not None
+            signals.append(sig)
+            real_killpg(group, sig)
+
+        try:
+            assert wait_workload(child, 3, True) == status
+            with mock.patch.object(os, "killpg", side_effect=owned_signal):
+                assert not stop_workload(child, 0.05, True)
+            assert signals == [signal.SIGKILL] and child.returncode == status
+        finally:
+            stop_workload(child, 0.05, True)
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
         changed = dict(baseline, process_start_time="different-process")
@@ -531,13 +604,15 @@ def regression_tests(baseline):
 
         # A wrapper may exit first; terminate only the new workload's remaining group.
         child = subprocess.Popen([sys.executable, "-c",
-            "import subprocess,sys,time; p=subprocess.Popen([sys.executable,'-c',"
-            "'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); time.sleep(30)']);"
-            "print(p.pid,flush=True); time.sleep(30)"], stdout=subprocess.PIPE,
+            "import subprocess,sys; p=subprocess.Popen([sys.executable,'-c',"
+            "'import signal,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); print(1,flush=True); time.sleep(30)'],"
+            "stdout=subprocess.PIPE); p.stdout.readline(); print(p.pid,flush=True)"], stdout=subprocess.PIPE,
             text=True, start_new_session=True)
         try:
             descendant = int(child.stdout.readline())
-            assert stop_workload(child, 0.05, True)
+            assert wait_workload(child, 3, True) == 0
+            with mock.patch.object(os, "killpg", side_effect=owned_signal):
+                assert stop_workload(child, 0.05, True)
             assert child.poll() is not None
             for _ in range(50):
                 try:
