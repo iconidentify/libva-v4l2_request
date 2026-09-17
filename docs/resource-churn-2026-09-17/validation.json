@@ -1,0 +1,2171 @@
+{
+  "issue": "https://github.com/iconidentify/libva-v4l2_request/issues/41",
+  "date": "2026-09-17",
+  "hardware_campaign_complete": true,
+  "merge_acceptance": "All hardware gates complete; final evidence integration is recorded in the linked PR and issue.",
+  "review": "Maintainer implementation and self-review; not independent review.",
+  "identity": {
+    "tested_source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+    "production_src_tree": "2b48a40943abe31554c3cc8fbf9ce5ed83033b2a",
+    "driver_sha256": "ce5c4513e72d1178f3bcb695f8acd76ad298564df8077eb408722cc447fb6f63",
+    "driver_path": "<workspace>/validation79-20260917/driver/build-hardware/src/v4l2_request_drv_video.so",
+    "publication_base": "27da69dd5fcb438deab970061a2edcc68a9e1d93",
+    "kernel": "7.1.13-3-1-ARCH",
+    "packages": [
+      "linux-asahi 7.1.13.asahi3-1",
+      "libva 2.24.1-1",
+      "libdrm 2.4.134-1",
+      "ffmpeg 2:9.0.1-4",
+      "libva-v4l2_request-avd 1.3.r11-2"
+    ],
+    "offline_release_tests": {
+      "passed": 177,
+      "failed": 0,
+      "actual_tsan": true
+    },
+    "hardware": "Apple M1 T8103 (apple,j293), apple,avd /dev/video0 and /dev/media0",
+    "test_harness_source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+    "source_hashes": {
+      "tests/resource-workload.c": "36c101981a855607972cad7cdb5d5b77ad227c97a81cd97fac507ba495c73afb",
+      "tests/resource-campaign.py": "9c2e5a10dcd69858d91c9287fec8e3c671c6c8633e65355155e172dc5438f290",
+      "tests/resource-interrupt.py": "ab196a19172285c1801ff5ece57e174109095189338667a8ada3a3ca9a4bad4e",
+      "tests/resource-campaign-check.py": "d133600ec886b487b70179c988e89f3b5ac39aab9067f0b0c95261a318a63dd1",
+      "tests/resource-churn.py": "65ccc04cef330897d946c96f72f5db8cd8fa5075001ed5ab21a4a852da999a8f",
+      "tests/frame-check.c": "1b5110c2d5e97e489c46838baa925881da84a8cf677dee70a2f8e589ac5c2e0c",
+      "tests/early-export.c": "6b5ac546ea3d258d73f5d4246bafec680fb9aa4352b5083b85b8fe56adb17599",
+      "tests/hwguard.py": "45d65351b33b13dbdd2145b3d37a83bf48c27cc08f1df08c5f37b196d7643d60",
+      "tests/conformance.py": "67cfcb738b1977c01a49a8c02921c2cea4c816b5dcd648320aa71ace48ad7e74",
+      "tests/compare-results.py": "c481824861764edb78b89d09235e277ec47b7740e2ba02c0860af3ab670dfe52"
+    },
+    "fluster_commit": "f3ad284a9e6cac70dc01b02e0de71c2994181d34",
+    "installation": "Existing libva-v4l2_request-avd 1.3.r11-2 remains installed; hardware runs select the separate build via LIBVA_DRIVERS_PATH.",
+    "prior_qualification": "https://github.com/iconidentify/libva-v4l2_request/pull/81",
+    "reviewed_bounds_unchanged": true
+  },
+  "recovery": {
+    "authorization": "User explicitly confirmed work saved and authorized one existing-module unload/reload, then tests.",
+    "previous_fault_utc": "2026-09-17T01:25:32.746612+00:00",
+    "operations": [
+      {
+        "command": [
+          "sudo",
+          "-n",
+          "modprobe",
+          "-r",
+          "apple_avd"
+        ],
+        "started": "2026-09-17T02:16:40.167722+00:00",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "finished": "2026-09-17T02:16:40.250282+00:00"
+      },
+      {
+        "command": [
+          "sudo",
+          "-n",
+          "modprobe",
+          "apple_avd"
+        ],
+        "started": "2026-09-17T02:16:40.251272+00:00",
+        "returncode": 0,
+        "stdout": "",
+        "stderr": "",
+        "finished": "2026-09-17T02:16:40.272416+00:00"
+      }
+    ],
+    "module_path": "/lib/modules/7.1.13-3-1-ARCH/updates/apple-avd.ko",
+    "module_sha256": "e50540e1d0fc48c7e0bf9b21ff028758bdb35f94aa7070af00de88e61e5c70e9",
+    "previous_faults": [
+      "avd 269080000.avd: H3 error",
+      "avd 269080000.avd: Frame processing timed out!",
+      "avd 269080000.avd: H3 error",
+      "avd 269080000.avd: Frame processing timed out!",
+      "avd 269080000.avd: Frame processing timed out!"
+    ],
+    "journal_since": "2026-09-17 02:16:40 UTC",
+    "outcome": {
+      "healthy": true,
+      "idle": true,
+      "wedged": false,
+      "module_loaded": true,
+      "video_node": "/dev/video0",
+      "faults": []
+    }
+  },
+  "inputs": {
+    "inputs": [
+      {
+        "name": "h264.mkv",
+        "format": "yuv420p",
+        "sha256": "abaa0d15d49eeb4d04668715675afa651143e911f91c037af0e199972e1cbef9",
+        "frames": [
+          "frame 0 640x360 yuv420p b2889702d8dd3be845fc9a6562a6e055",
+          "frame 1 640x360 yuv420p 12896e1794238c8ca1c77df0339cae6a",
+          "frame 2 640x360 yuv420p b2f2db8c87fd3fff848a1a0cf4911451",
+          "frame 3 640x360 yuv420p 6fa7f8b5236d1c3a10acd1c5ced06626",
+          "frame 4 640x360 yuv420p f2b262d9b0f643dd6d152f63ccbafb14",
+          "frame 5 640x360 yuv420p 9da72d2a757625bfd75d7f7b1a8b0d09",
+          "frame 6 640x360 yuv420p 24820e5cd52ac91efeb351f4d77ca0da",
+          "frame 7 640x360 yuv420p 486a34fd8da0334571079f5ca9e546ec",
+          "frame 8 640x360 yuv420p 8fd5f4e5ee9acd386f66e0e8d104d607",
+          "frame 9 640x360 yuv420p d7a16e92d6c9bf50f2d47f34969babd4",
+          "frame 10 640x360 yuv420p 16a783d4c7df3598cde97368d347b699",
+          "frame 11 640x360 yuv420p 38cded9e6dcc649113004284107f629b",
+          "frame 12 640x360 yuv420p e7e35e66e39ee1ab301875ec69c05bc1",
+          "frame 13 640x360 yuv420p b08260c8d4d2785c822a5101c13477c1",
+          "frame 14 640x360 yuv420p a8f39a1cfb330426115c3a1b7775cd94",
+          "frame 15 640x360 yuv420p 2db01643ba9f2fd954e2d1a0ec7cf5fd",
+          "frame 16 640x360 yuv420p d5a1736597c968e625712267845db3bd",
+          "frame 17 640x360 yuv420p 09aac6c60a8b42eb9249410d3426690f",
+          "frame 18 640x360 yuv420p 2c240ce8ca1602cd98255cd812b963a6",
+          "frame 19 640x360 yuv420p 3b21290bdd9f733aeb11c54a70b5fca7",
+          "frame 20 640x360 yuv420p 27b0fe4d3c2edefc42414a6833fe6bc1",
+          "frame 21 640x360 yuv420p c302771368f956dc742cfe06038d8291",
+          "frame 22 640x360 yuv420p 34325219a0fdd614dcd032b0cd9523ef",
+          "frame 23 640x360 yuv420p 5dc9ec20e17d2c841f9b7b81241bf2a2"
+        ],
+        "md5": "fae1f882f94819e9283e2f2173408628"
+      },
+      {
+        "name": "hevc.mkv",
+        "format": "yuv420p",
+        "sha256": "a5f3cb8f25bc56f5f3281bd9e1268d76d7391efa5ba14c025d912636afdb2625",
+        "frames": [
+          "frame 0 640x360 yuv420p 658994653693d7a842f6814f92b08fee",
+          "frame 1 640x360 yuv420p 42d0dce787d819c57e305e721a34e659",
+          "frame 2 640x360 yuv420p a39102714dc63851cef9e7e97249b620",
+          "frame 3 640x360 yuv420p b4d04f19354f7a7a0b94ecc3712223f2",
+          "frame 4 640x360 yuv420p b8ba4b0cea573f8582c35b2cb0475d10",
+          "frame 5 640x360 yuv420p db230bad24f29be8afc1620e6ad90ba8",
+          "frame 6 640x360 yuv420p bfc9e9575d25c64b30c3326925044385",
+          "frame 7 640x360 yuv420p d530ffa62da330e29de5603d15efdc7c",
+          "frame 8 640x360 yuv420p 394826ef27f54c478cb9fadd56911c06",
+          "frame 9 640x360 yuv420p 006a4c1cec810a2a36cbcbe63c056d94",
+          "frame 10 640x360 yuv420p b3a5ebed5a10546ede19278cfa2e793d",
+          "frame 11 640x360 yuv420p 68f6f041fb1ae2549a2c8fe12267ada9",
+          "frame 12 640x360 yuv420p a82d2e363c77349632946aebd031bee0",
+          "frame 13 640x360 yuv420p e598ac8f089cca222dcea2b167824ffc",
+          "frame 14 640x360 yuv420p 0d9eea26263e1c7edf168f4165b13d67",
+          "frame 15 640x360 yuv420p ab8b947b6cb3d4d1c1d1ae3acde38e6c",
+          "frame 16 640x360 yuv420p ab6ade23968ef8175477a21c3a527cff",
+          "frame 17 640x360 yuv420p a93a7060cd16c70fc5649ca697aa9e05",
+          "frame 18 640x360 yuv420p 1dd1f514291ff97a38ad9a5aada3695c",
+          "frame 19 640x360 yuv420p e727b7498d939b7a0fc04bc4e84c3c9f",
+          "frame 20 640x360 yuv420p d5f01e6d838a414e2dfeb614cbbe9712",
+          "frame 21 640x360 yuv420p a9003b5d8c1939e4c8dff68e8f0edb22",
+          "frame 22 640x360 yuv420p bc26e08efbe99bdf72d97169185af78a",
+          "frame 23 640x360 yuv420p c4a68d935ad4a0fd22616db9a5e98783"
+        ],
+        "md5": "72387f9c80e521574ecfd4f8325ac1bf"
+      },
+      {
+        "name": "vp9-8.webm",
+        "format": "yuv420p",
+        "sha256": "33a892f93ce671ec3e747319d31ee3947c15c07e0bfcf4a593f08c15e5b13651",
+        "frames": [
+          "frame 0 640x360 yuv420p f32402aad256d9456d53d5e4de392b15",
+          "frame 1 640x360 yuv420p 5d4d2e8d3820bbe7c8100d3e75d3b595",
+          "frame 2 640x360 yuv420p cf0136c1d52062c57af9d05ca1168c62",
+          "frame 3 640x360 yuv420p 617ba9259b5ade98dae94cfca8b252e9",
+          "frame 4 640x360 yuv420p 288ffb9263ccf580e87e7398eab84264",
+          "frame 5 640x360 yuv420p e10dcb0f97691b4eb23215e27ea70074",
+          "frame 6 640x360 yuv420p f07956c17e8c7936e3259122ab045750",
+          "frame 7 640x360 yuv420p c9cc31e9374278d49f9d52fe7ac3c574",
+          "frame 8 640x360 yuv420p b2f2e6f1e8f47f954b2ce6ab1cad757f",
+          "frame 9 640x360 yuv420p dbd3c7e2bb99205478c15e2bed27dbe0",
+          "frame 10 640x360 yuv420p be461344716990f5f11670cffb661f12",
+          "frame 11 640x360 yuv420p 5f6916840594b0ce6f8691a22a713f6b",
+          "frame 12 640x360 yuv420p 0fee48d422d6a5ef9f1e21940f09ccd0",
+          "frame 13 640x360 yuv420p 9bf17969a3dcc2ce5a154d4ce5f3f627",
+          "frame 14 640x360 yuv420p fb8fac05e652db9ffd8561fccfbdf052",
+          "frame 15 640x360 yuv420p fe51dc81190a086a4ffb278d54a73d92",
+          "frame 16 640x360 yuv420p 9b0e84ed66d1734b697b8ca8f27e9729",
+          "frame 17 640x360 yuv420p e38d061c8e17217c9ad23e8e3a8f300d",
+          "frame 18 640x360 yuv420p cf25324ad0227627d3da6a5af74fa69e",
+          "frame 19 640x360 yuv420p e36f1db98c4abe86f3bdf04f4288d87e",
+          "frame 20 640x360 yuv420p 25af4afb539c7c42bba2860f92282cad",
+          "frame 21 640x360 yuv420p 6bd0b078474f4afb2f6ff03f338239e9",
+          "frame 22 640x360 yuv420p 1221a2d6001efd5022be5d99b8a68a0b",
+          "frame 23 640x360 yuv420p b542eb8c0d19964b827eba078ae1cb63"
+        ],
+        "md5": "950a98cc0ab640cc795abf3a577cbff5"
+      },
+      {
+        "name": "vp9-10.webm",
+        "format": "yuv420p10le",
+        "sha256": "cfc1d27ad161696e574020b910cd952725cf67d12e0913dedec7d202aae84463",
+        "frames": [
+          "frame 0 640x360 yuv420p10le 5788ab6bc2a8a63882b903533e4d97e1",
+          "frame 1 640x360 yuv420p10le d18ecdd53bf7b3d6ac0cb559e358bf31",
+          "frame 2 640x360 yuv420p10le cebd871a68141242019732ff2da616c4",
+          "frame 3 640x360 yuv420p10le 5ea06c606885678b608fd8670e786c8a",
+          "frame 4 640x360 yuv420p10le 7263d24aaa38127aa86f8686399c27d3",
+          "frame 5 640x360 yuv420p10le c78a941730cf04301c2b85723e63371a",
+          "frame 6 640x360 yuv420p10le b4c0ad4dcd4fa95712a0f4952652d91e",
+          "frame 7 640x360 yuv420p10le 3407c32bc5895149c1658e3e6c541a8e",
+          "frame 8 640x360 yuv420p10le e35723385b06fcd07028b36bca82fb9d",
+          "frame 9 640x360 yuv420p10le d07c13a18c064523f5db9a72062834cb",
+          "frame 10 640x360 yuv420p10le a7071ad63f514d71a279361f68772803",
+          "frame 11 640x360 yuv420p10le 3f6a3de5d9e14460202f97bdb8b2060f",
+          "frame 12 640x360 yuv420p10le cac1327d2c89342224e9a96906c7fea7",
+          "frame 13 640x360 yuv420p10le 07157723e77f5cf87eeda99944b55f74",
+          "frame 14 640x360 yuv420p10le e9c419233ca621b12dba2435306a77a0",
+          "frame 15 640x360 yuv420p10le 8fefcec60d74fa2d21554d83fd2eb15a",
+          "frame 16 640x360 yuv420p10le 8a7545dd2a95aaed8eae3dc77b4bfb2c",
+          "frame 17 640x360 yuv420p10le b0790b586b8504c9ca02578c7c6d497d",
+          "frame 18 640x360 yuv420p10le ed9919e979b0f0d74f482bac73f0edb1",
+          "frame 19 640x360 yuv420p10le 817fbdacd27b534c4b9fb2fcd7ee5ccf",
+          "frame 20 640x360 yuv420p10le 2dfe14a47953f0e76c6fbae52e58cba1",
+          "frame 21 640x360 yuv420p10le 52b3547a406b924e4799083b2d89d005",
+          "frame 22 640x360 yuv420p10le a1890c36b5df36d238b036ef6f64f8c6",
+          "frame 23 640x360 yuv420p10le 1ed9ece23c5c497ac44f70e5c2f635ac"
+        ],
+        "md5": "b948098e83fb6d9e4a65e2b2311fb73f"
+      }
+    ],
+    "commands": [
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=640x360:rate=24,format=yuv420p",
+        "-frames:v",
+        "24",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-bf",
+        "2",
+        "-g",
+        "12",
+        "-pix_fmt",
+        "+yuv420p",
+        "h264.mkv"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=640x360:rate=25,format=yuv420p",
+        "-frames:v",
+        "24",
+        "-c:v",
+        "libx265",
+        "-preset",
+        "ultrafast",
+        "-x265-params",
+        "log-level=error:pools=2",
+        "-g",
+        "12",
+        "-pix_fmt",
+        "+yuv420p",
+        "hevc.mkv"
+      ],
+      [
+        "ffmpeg",
+        "-nostdin",
+        "-v",
+        "error",
+        "-y",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=640x360:rate=26,format=yuv420p",
+        "-frames:v",
+        "24",
+        "-c:v",
+        "libvpx-vp9",
+        "-deadline",
+        "good",
+        "-cpu-used",
+        "5",
+        "-threads",
+        "2",
+        "-lag-in-frames",
+        "8",
+        "-g",
+        "12",
+        "-pix_fmt",
+        "+yuv420p",
+        "vp9-8.webm"
+      ],
+      [
+        "copy",
+        "tests/fixtures/resource/vp9-10.webm",
+        "vp9-10.webm"
+      ]
+    ],
+    "reference_source_sha256": "1b5110c2d5e97e489c46838baa925881da84a8cf677dee70a2f8e589ac5c2e0c",
+    "workload_source_sha256": "36c101981a855607972cad7cdb5d5b77ad227c97a81cd97fac507ba495c73afb",
+    "ffmpeg": "ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+    "compiler": "cc (GCC) 16.1.1 20260430",
+    "workload_sha256": "d6507f7a42c078b53b7c0362d9166b4125509992629b0f6d4ec8a2f387a6bdec",
+    "early_export_sha256": "603b23917c589927d9cfbbc853a297228fae66217787108e8484801ed91fcff2"
+  },
+  "post_campaign_identity_checks": {
+    "selected_driver_and_harness_unchanged": true,
+    "pinned_corpus_input_hashes_rechecked": 662
+  },
+  "acceptance_campaigns": {
+    "normal-1000": {
+      "metadata": {
+        "driver_sha256": "ce5c4513e72d1178f3bcb695f8acd76ad298564df8077eb408722cc447fb6f63",
+        "inputs_sha256": "642c7f0b286994c011dec3b2f1cbad3c1ec32d2873958ff421ff96f3d9b2da4a",
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "normal",
+        "requested_cycles": 1000,
+        "requested_seconds": 0,
+        "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+        "type": "metadata",
+        "warmup_cycles": 20
+      },
+      "summary": {
+        "allocator_bytes": {
+          "allocated": {
+            "final": 345680,
+            "initial": 336464,
+            "maximum": 346480,
+            "minimum": 336464
+          },
+          "arena": {
+            "final": 2097152,
+            "initial": 4194304,
+            "maximum": 4194304,
+            "minimum": 2097152
+          },
+          "free": {
+            "final": 1751472,
+            "initial": 3857840,
+            "maximum": 3857840,
+            "minimum": 1750768
+          },
+          "mmap": {
+            "final": 0,
+            "initial": 0,
+            "maximum": 0,
+            "minimum": 0
+          },
+          "releasable": {
+            "final": 215600,
+            "initial": 2192544,
+            "maximum": 2218192,
+            "minimum": 147200
+          }
+        },
+        "cycles": 1000,
+        "decoded_frames": 48960,
+        "dmabuf_status": "none-observed",
+        "elapsed_seconds": 211.6543478149979,
+        "growth": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 48
+        },
+        "held_image_checks": 1020,
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "normal",
+        "monotonic_growth": {
+          "dmabuf_bytes": false,
+          "dmabuf_objects": false,
+          "dmabuf_references": false,
+          "fds": false,
+          "mapped_bytes": false,
+          "maps": false,
+          "vmrss_kib": false
+        },
+        "passed": true,
+        "returncode": 0,
+        "sample_span_seconds": 211.647900455,
+        "samples": 1001,
+        "type": "summary",
+        "violations": [],
+        "warmup_cycles": 20
+      },
+      "initial_display": {
+        "dmabuf": {
+          "references": 0,
+          "status": "none-observed",
+          "unique_bytes": 0,
+          "unique_objects": 0
+        },
+        "dmabuf_bytes": 0,
+        "dmabuf_objects": 0,
+        "dmabuf_references": 0,
+        "fd_count": 4,
+        "map_count": 495,
+        "mapped_bytes": 167788544,
+        "monotonic_ns": 109770439651830,
+        "pid": 832971,
+        "process_start_time": "10977042",
+        "process_state": "S",
+        "rssanon_kib": 7440,
+        "rssfile_kib": 20464,
+        "rssshmem_kib": 0,
+        "timestamp_ns": 1789612053105227827,
+        "type": "initial",
+        "vmhwm_kib": 27904,
+        "vmrss_kib": 27904
+      },
+      "resource_ranges": {
+        "fd_count": {
+          "baseline": 4,
+          "minimum": 4,
+          "maximum": 4,
+          "final": 4,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "map_count": {
+          "baseline": 495,
+          "minimum": 495,
+          "maximum": 495,
+          "final": 495,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "mapped_bytes": {
+          "baseline": 169885696,
+          "minimum": 167788544,
+          "maximum": 169885696,
+          "final": 167788544,
+          "peak_growth": 0,
+          "final_change": -2097152
+        },
+        "vmrss_kib": {
+          "baseline": 41136,
+          "minimum": 39808,
+          "maximum": 41184,
+          "final": 39808,
+          "peak_growth": 48,
+          "final_change": -1328
+        },
+        "dmabuf_references": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_objects": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_bytes": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "allocator_accounted_bytes": {
+          "baseline": 336464,
+          "minimum": 336464,
+          "maximum": 346480,
+          "final": 345680,
+          "peak_growth": 10016,
+          "final_change": 9216
+        }
+      },
+      "checkpoints": [
+        {
+          "allocator": {
+            "allocated": 336464,
+            "arena": 4194304,
+            "free": 3857840,
+            "mmap": 0,
+            "releasable": 2192544
+          },
+          "cycle": 0,
+          "decoded_frames": 960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 495,
+          "mapped_bytes": 169885696,
+          "monotonic_ns": 109774617277600,
+          "pid": 832971,
+          "process_start_time": "10977042",
+          "process_state": "S",
+          "rssanon_kib": 10640,
+          "rssfile_kib": 30496,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612057282855473,
+          "type": "sample",
+          "vmhwm_kib": 50768,
+          "vmrss_kib": 41136
+        },
+        {
+          "allocator": {
+            "allocated": 344816,
+            "arena": 4194304,
+            "free": 3849488,
+            "mmap": 0,
+            "releasable": 2186048
+          },
+          "cycle": 100,
+          "decoded_frames": 5760,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 495,
+          "mapped_bytes": 169885696,
+          "monotonic_ns": 109795863532429,
+          "pid": 832971,
+          "process_start_time": "10977042",
+          "process_state": "S",
+          "rssanon_kib": 10624,
+          "rssfile_kib": 30496,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612078529110301,
+          "type": "sample",
+          "vmhwm_kib": 51472,
+          "vmrss_kib": 41120
+        },
+        {
+          "allocator": {
+            "allocated": 346192,
+            "arena": 2097152,
+            "free": 1750960,
+            "mmap": 0,
+            "releasable": 215600
+          },
+          "cycle": 500,
+          "decoded_frames": 24960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 495,
+          "mapped_bytes": 167788544,
+          "monotonic_ns": 109880613245226,
+          "pid": 832971,
+          "process_start_time": "10977042",
+          "process_state": "S",
+          "rssanon_kib": 9312,
+          "rssfile_kib": 30496,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612163278823307,
+          "type": "sample",
+          "vmhwm_kib": 51872,
+          "vmrss_kib": 39808
+        },
+        {
+          "allocator": {
+            "allocated": 345680,
+            "arena": 2097152,
+            "free": 1751472,
+            "mmap": 0,
+            "releasable": 215600
+          },
+          "cycle": 1000,
+          "decoded_frames": 48960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 495,
+          "mapped_bytes": 167788544,
+          "monotonic_ns": 109986265178055,
+          "pid": 832971,
+          "process_start_time": "10977042",
+          "process_state": "S",
+          "rssanon_kib": 9312,
+          "rssfile_kib": 30496,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612268930754386,
+          "type": "sample",
+          "vmhwm_kib": 52064,
+          "vmrss_kib": 39808
+        }
+      ],
+      "guard": [
+        {
+          "event": "preflight",
+          "run_id": "aabe2f78-c0d7-44ba-952a-a52b157b631a",
+          "identity": "avd",
+          "idle": true,
+          "module_loaded": true,
+          "userspace": {
+            "libva_drivers_path": "<redacted>",
+            "libva_driver_name": "v4l2_request",
+            "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+            "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a"
+          },
+          "time": "2026-09-16T19:27:33-0700"
+        },
+        {
+          "event": "start",
+          "run_id": "aabe2f78-c0d7-44ba-952a-a52b157b631a",
+          "time": "2026-09-16T19:27:33-0700"
+        },
+        {
+          "event": "final",
+          "run_id": "aabe2f78-c0d7-44ba-952a-a52b157b631a",
+          "status": "ok",
+          "returncode": 0,
+          "timed_out": false,
+          "wedged": false,
+          "abort_reason": null,
+          "idle": true,
+          "holders": [],
+          "time": "2026-09-16T19:31:09-0700"
+        }
+      ],
+      "raw_replay": {
+        "matched_frame_records": 48960,
+        "held_image_records": 1020,
+        "early_export_identity_records": 0
+      },
+      "allocator_windows": [
+        {
+          "cycle_from": 0,
+          "cycle_to": 100,
+          "minimum": 336464,
+          "maximum": 345248
+        },
+        {
+          "cycle_from": 100,
+          "cycle_to": 500,
+          "minimum": 344624,
+          "maximum": 346384
+        },
+        {
+          "cycle_from": 500,
+          "cycle_to": 1000,
+          "minimum": 345376,
+          "maximum": 346480
+        },
+        {
+          "cycle_from": 1000,
+          "cycle_to": 1000,
+          "minimum": 345680,
+          "maximum": 345680
+        }
+      ]
+    },
+    "early-1000": {
+      "metadata": {
+        "driver_sha256": "ce5c4513e72d1178f3bcb695f8acd76ad298564df8077eb408722cc447fb6f63",
+        "inputs_sha256": "642c7f0b286994c011dec3b2f1cbad3c1ec32d2873958ff421ff96f3d9b2da4a",
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "early",
+        "requested_cycles": 1000,
+        "requested_seconds": 0,
+        "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+        "type": "metadata",
+        "warmup_cycles": 20
+      },
+      "summary": {
+        "allocator_bytes": {
+          "allocated": {
+            "final": 345408,
+            "initial": 336736,
+            "maximum": 346272,
+            "minimum": 336736
+          },
+          "arena": {
+            "final": 3211264,
+            "initial": 3211264,
+            "maximum": 3211264,
+            "minimum": 3211264
+          },
+          "free": {
+            "final": 2865856,
+            "initial": 2874528,
+            "maximum": 2874528,
+            "minimum": 2864992
+          },
+          "mmap": {
+            "final": 0,
+            "initial": 0,
+            "maximum": 0,
+            "minimum": 0
+          },
+          "releasable": {
+            "final": 1872992,
+            "initial": 1872992,
+            "maximum": 1872992,
+            "minimum": 1201840
+          }
+        },
+        "cycles": 1000,
+        "decoded_frames": 48960,
+        "dmabuf_status": "none-observed",
+        "elapsed_seconds": 221.40346972999396,
+        "growth": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 0
+        },
+        "held_image_checks": 1020,
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "early",
+        "monotonic_growth": {
+          "dmabuf_bytes": false,
+          "dmabuf_objects": false,
+          "dmabuf_references": false,
+          "fds": false,
+          "mapped_bytes": false,
+          "maps": false,
+          "vmrss_kib": false
+        },
+        "passed": true,
+        "returncode": 0,
+        "sample_span_seconds": 221.384579454,
+        "samples": 1001,
+        "type": "summary",
+        "violations": [],
+        "warmup_cycles": 20
+      },
+      "initial_display": {
+        "dmabuf": {
+          "references": 0,
+          "status": "none-observed",
+          "unique_bytes": 0,
+          "unique_objects": 0
+        },
+        "dmabuf_bytes": 0,
+        "dmabuf_objects": 0,
+        "dmabuf_references": 0,
+        "fd_count": 4,
+        "map_count": 499,
+        "mapped_bytes": 166952960,
+        "monotonic_ns": 109986556325222,
+        "pid": 834799,
+        "process_start_time": "10998654",
+        "process_state": "S",
+        "rssanon_kib": 7472,
+        "rssfile_kib": 20512,
+        "rssshmem_kib": 0,
+        "timestamp_ns": 1789612269221903095,
+        "type": "initial",
+        "vmhwm_kib": 27984,
+        "vmrss_kib": 27984
+      },
+      "resource_ranges": {
+        "fd_count": {
+          "baseline": 4,
+          "minimum": 4,
+          "maximum": 4,
+          "final": 4,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "map_count": {
+          "baseline": 499,
+          "minimum": 499,
+          "maximum": 499,
+          "final": 499,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "mapped_bytes": {
+          "baseline": 169050112,
+          "minimum": 169050112,
+          "maximum": 169050112,
+          "final": 169050112,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "vmrss_kib": {
+          "baseline": 40976,
+          "minimum": 40976,
+          "maximum": 40976,
+          "final": 40976,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_references": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_objects": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_bytes": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "allocator_accounted_bytes": {
+          "baseline": 336736,
+          "minimum": 336736,
+          "maximum": 346272,
+          "final": 345408,
+          "peak_growth": 9536,
+          "final_change": 8672
+        }
+      },
+      "checkpoints": [
+        {
+          "allocator": {
+            "allocated": 336736,
+            "arena": 3211264,
+            "free": 2874528,
+            "mmap": 0,
+            "releasable": 1872992
+          },
+          "cycle": 0,
+          "decoded_frames": 960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169050112,
+          "monotonic_ns": 109990897851173,
+          "pid": 834799,
+          "process_start_time": "10998654",
+          "process_state": "S",
+          "rssanon_kib": 10432,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612273563426504,
+          "type": "sample",
+          "vmhwm_kib": 51424,
+          "vmrss_kib": 40976
+        },
+        {
+          "allocator": {
+            "allocated": 345264,
+            "arena": 3211264,
+            "free": 2866000,
+            "mmap": 0,
+            "releasable": 1872992
+          },
+          "cycle": 100,
+          "decoded_frames": 5760,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169050112,
+          "monotonic_ns": 110013023404354,
+          "pid": 834799,
+          "process_start_time": "10998654",
+          "process_state": "S",
+          "rssanon_kib": 10432,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612295688982310,
+          "type": "sample",
+          "vmhwm_kib": 51808,
+          "vmrss_kib": 40976
+        },
+        {
+          "allocator": {
+            "allocated": 345600,
+            "arena": 3211264,
+            "free": 2865664,
+            "mmap": 0,
+            "releasable": 1872992
+          },
+          "cycle": 500,
+          "decoded_frames": 24960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169050112,
+          "monotonic_ns": 110101466682915,
+          "pid": 834799,
+          "process_start_time": "10998654",
+          "process_state": "S",
+          "rssanon_kib": 10432,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612384132260746,
+          "type": "sample",
+          "vmhwm_kib": 52304,
+          "vmrss_kib": 40976
+        },
+        {
+          "allocator": {
+            "allocated": 345408,
+            "arena": 3211264,
+            "free": 2865856,
+            "mmap": 0,
+            "releasable": 1872992
+          },
+          "cycle": 1000,
+          "decoded_frames": 48960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169050112,
+          "monotonic_ns": 110212282430627,
+          "pid": 834799,
+          "process_start_time": "10998654",
+          "process_state": "S",
+          "rssanon_kib": 10432,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612494948008708,
+          "type": "sample",
+          "vmhwm_kib": 52304,
+          "vmrss_kib": 40976
+        }
+      ],
+      "guard": [
+        {
+          "event": "preflight",
+          "run_id": "78625c10-5035-403d-aa65-a09c5b7a353a",
+          "identity": "avd",
+          "idle": true,
+          "module_loaded": true,
+          "userspace": {
+            "libva_drivers_path": "<redacted>",
+            "libva_driver_name": "v4l2_request",
+            "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+            "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a"
+          },
+          "time": "2026-09-16T19:31:09-0700"
+        },
+        {
+          "event": "start",
+          "run_id": "78625c10-5035-403d-aa65-a09c5b7a353a",
+          "time": "2026-09-16T19:31:09-0700"
+        },
+        {
+          "event": "final",
+          "run_id": "78625c10-5035-403d-aa65-a09c5b7a353a",
+          "status": "ok",
+          "returncode": 0,
+          "timed_out": false,
+          "wedged": false,
+          "abort_reason": null,
+          "idle": true,
+          "holders": [],
+          "time": "2026-09-16T19:34:55-0700"
+        }
+      ],
+      "raw_replay": {
+        "matched_frame_records": 48960,
+        "held_image_records": 1020,
+        "early_export_identity_records": 48960
+      },
+      "allocator_windows": [
+        {
+          "cycle_from": 0,
+          "cycle_to": 100,
+          "minimum": 336736,
+          "maximum": 345472
+        },
+        {
+          "cycle_from": 100,
+          "cycle_to": 500,
+          "minimum": 345072,
+          "maximum": 346272
+        },
+        {
+          "cycle_from": 500,
+          "cycle_to": 1000,
+          "minimum": 345072,
+          "maximum": 346176
+        },
+        {
+          "cycle_from": 1000,
+          "cycle_to": 1000,
+          "minimum": 345408,
+          "maximum": 345408
+        }
+      ]
+    },
+    "soak": {
+      "metadata": {
+        "driver_sha256": "ce5c4513e72d1178f3bcb695f8acd76ad298564df8077eb408722cc447fb6f63",
+        "inputs_sha256": "642c7f0b286994c011dec3b2f1cbad3c1ec32d2873958ff421ff96f3d9b2da4a",
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "early",
+        "requested_cycles": 1000000,
+        "requested_seconds": 3600,
+        "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+        "type": "metadata",
+        "warmup_cycles": 20
+      },
+      "summary": {
+        "allocator_bytes": {
+          "allocated": {
+            "final": 345696,
+            "initial": 336736,
+            "maximum": 346272,
+            "minimum": 336736
+          },
+          "arena": {
+            "final": 3194880,
+            "initial": 3194880,
+            "maximum": 3194880,
+            "minimum": 3194880
+          },
+          "free": {
+            "final": 2849184,
+            "initial": 2858144,
+            "maximum": 2858144,
+            "minimum": 2848608
+          },
+          "mmap": {
+            "final": 0,
+            "initial": 0,
+            "maximum": 0,
+            "minimum": 0
+          },
+          "releasable": {
+            "final": 1856608,
+            "initial": 1856608,
+            "maximum": 1856608,
+            "minimum": 1126192
+          }
+        },
+        "cycles": 16298,
+        "decoded_frames": 783264,
+        "dmabuf_status": "none-observed",
+        "elapsed_seconds": 3600.332875811,
+        "growth": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 0
+        },
+        "held_image_checks": 16318,
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 4194304,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "early",
+        "monotonic_growth": {
+          "dmabuf_bytes": false,
+          "dmabuf_objects": false,
+          "dmabuf_references": false,
+          "fds": false,
+          "mapped_bytes": false,
+          "maps": false,
+          "vmrss_kib": false
+        },
+        "passed": true,
+        "returncode": 0,
+        "sample_span_seconds": 3600.167885861,
+        "samples": 16299,
+        "type": "summary",
+        "violations": [],
+        "warmup_cycles": 20
+      },
+      "initial_display": {
+        "dmabuf": {
+          "references": 0,
+          "status": "none-observed",
+          "unique_bytes": 0,
+          "unique_objects": 0
+        },
+        "dmabuf_bytes": 0,
+        "dmabuf_objects": 0,
+        "dmabuf_references": 0,
+        "fd_count": 4,
+        "map_count": 499,
+        "mapped_bytes": 166936576,
+        "monotonic_ns": 110212575907759,
+        "pid": 837053,
+        "process_start_time": "11021254",
+        "process_state": "S",
+        "rssanon_kib": 7472,
+        "rssfile_kib": 20512,
+        "rssshmem_kib": 0,
+        "timestamp_ns": 1789612495241485423,
+        "type": "initial",
+        "vmhwm_kib": 27984,
+        "vmrss_kib": 27984
+      },
+      "resource_ranges": {
+        "fd_count": {
+          "baseline": 4,
+          "minimum": 4,
+          "maximum": 4,
+          "final": 4,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "map_count": {
+          "baseline": 499,
+          "minimum": 499,
+          "maximum": 499,
+          "final": 499,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "mapped_bytes": {
+          "baseline": 169033728,
+          "minimum": 169033728,
+          "maximum": 169033728,
+          "final": 169033728,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "vmrss_kib": {
+          "baseline": 40960,
+          "minimum": 40960,
+          "maximum": 40960,
+          "final": 40960,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_references": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_objects": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_bytes": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "allocator_accounted_bytes": {
+          "baseline": 336736,
+          "minimum": 336736,
+          "maximum": 346272,
+          "final": 345696,
+          "peak_growth": 9536,
+          "final_change": 8960
+        }
+      },
+      "checkpoints": [
+        {
+          "allocator": {
+            "allocated": 336736,
+            "arena": 3194880,
+            "free": 2858144,
+            "mmap": 0,
+            "releasable": 1856608
+          },
+          "cycle": 0,
+          "decoded_frames": 960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169033728,
+          "monotonic_ns": 110216927294615,
+          "pid": 837053,
+          "process_start_time": "11021254",
+          "process_state": "S",
+          "rssanon_kib": 10416,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612499592871821,
+          "type": "sample",
+          "vmhwm_kib": 50336,
+          "vmrss_kib": 40960
+        },
+        {
+          "allocator": {
+            "allocated": 345264,
+            "arena": 3194880,
+            "free": 2849616,
+            "mmap": 0,
+            "releasable": 1856608
+          },
+          "cycle": 100,
+          "decoded_frames": 5760,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169033728,
+          "monotonic_ns": 110239132609324,
+          "pid": 837053,
+          "process_start_time": "11021254",
+          "process_state": "S",
+          "rssanon_kib": 10416,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612521798185447,
+          "type": "sample",
+          "vmhwm_kib": 50784,
+          "vmrss_kib": 40960
+        },
+        {
+          "allocator": {
+            "allocated": 345600,
+            "arena": 3194880,
+            "free": 2849280,
+            "mmap": 0,
+            "releasable": 1856608
+          },
+          "cycle": 500,
+          "decoded_frames": 24960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169033728,
+          "monotonic_ns": 110327666326884,
+          "pid": 837053,
+          "process_start_time": "11021254",
+          "process_state": "S",
+          "rssanon_kib": 10416,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612610331904381,
+          "type": "sample",
+          "vmhwm_kib": 52576,
+          "vmrss_kib": 40960
+        },
+        {
+          "allocator": {
+            "allocated": 345408,
+            "arena": 3194880,
+            "free": 2849472,
+            "mmap": 0,
+            "releasable": 1856608
+          },
+          "cycle": 1000,
+          "decoded_frames": 48960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169033728,
+          "monotonic_ns": 110438390121304,
+          "pid": 837053,
+          "process_start_time": "11021254",
+          "process_state": "S",
+          "rssanon_kib": 10416,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789612721055699052,
+          "type": "sample",
+          "vmhwm_kib": 52576,
+          "vmrss_kib": 40960
+        },
+        {
+          "allocator": {
+            "allocated": 345696,
+            "arena": 3194880,
+            "free": 2849184,
+            "mmap": 0,
+            "releasable": 1856608
+          },
+          "cycle": 16298,
+          "decoded_frames": 783264,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 499,
+          "mapped_bytes": 169033728,
+          "monotonic_ns": 113817095180476,
+          "pid": 837053,
+          "process_start_time": "11021254",
+          "process_state": "S",
+          "rssanon_kib": 10416,
+          "rssfile_kib": 30544,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789616099760758474,
+          "type": "sample",
+          "vmhwm_kib": 52576,
+          "vmrss_kib": 40960
+        }
+      ],
+      "guard": [
+        {
+          "event": "preflight",
+          "run_id": "33523c85-ddc8-496e-a34f-3bc986d5db64",
+          "identity": "avd",
+          "idle": true,
+          "module_loaded": true,
+          "userspace": {
+            "libva_drivers_path": "<redacted>",
+            "libva_driver_name": "v4l2_request",
+            "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+            "source_commit": "27da69dd5fcb438deab970061a2edcc68a9e1d93"
+          },
+          "time": "2026-09-16T19:34:55-0700"
+        },
+        {
+          "event": "start",
+          "run_id": "33523c85-ddc8-496e-a34f-3bc986d5db64",
+          "time": "2026-09-16T19:34:55-0700"
+        },
+        {
+          "event": "final",
+          "run_id": "33523c85-ddc8-496e-a34f-3bc986d5db64",
+          "status": "ok",
+          "returncode": 0,
+          "timed_out": false,
+          "wedged": false,
+          "abort_reason": null,
+          "idle": true,
+          "holders": [],
+          "time": "2026-09-16T20:35:00-0700"
+        }
+      ],
+      "raw_replay": {
+        "matched_frame_records": 783264,
+        "held_image_records": 16318,
+        "early_export_identity_records": 783264
+      },
+      "allocator_windows": [
+        {
+          "cycle_from": 0,
+          "cycle_to": 100,
+          "minimum": 336736,
+          "maximum": 345472
+        },
+        {
+          "cycle_from": 100,
+          "cycle_to": 500,
+          "minimum": 345072,
+          "maximum": 346272
+        },
+        {
+          "cycle_from": 500,
+          "cycle_to": 1000,
+          "minimum": 345072,
+          "maximum": 346176
+        },
+        {
+          "cycle_from": 1000,
+          "cycle_to": 16298,
+          "minimum": 344800,
+          "maximum": 346272
+        }
+      ]
+    },
+    "post-interrupt": {
+      "metadata": {
+        "driver_sha256": "ce5c4513e72d1178f3bcb695f8acd76ad298564df8077eb408722cc447fb6f63",
+        "inputs_sha256": "642c7f0b286994c011dec3b2f1cbad3c1ec32d2873958ff421ff96f3d9b2da4a",
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "normal",
+        "requested_cycles": 4,
+        "requested_seconds": 0,
+        "source_commit": "299d29333bc215d9d045130a0e0c6b8558a6654a",
+        "type": "metadata",
+        "warmup_cycles": 20
+      },
+      "summary": {
+        "allocator_bytes": {
+          "allocated": {
+            "final": 339328,
+            "initial": 338928,
+            "maximum": 339520,
+            "minimum": 338928
+          },
+          "arena": {
+            "final": 2670592,
+            "initial": 2670592,
+            "maximum": 2670592,
+            "minimum": 2670592
+          },
+          "free": {
+            "final": 2331264,
+            "initial": 2331664,
+            "maximum": 2331664,
+            "minimum": 2331072
+          },
+          "mmap": {
+            "final": 0,
+            "initial": 0,
+            "maximum": 0,
+            "minimum": 0
+          },
+          "releasable": {
+            "final": 1433152,
+            "initial": 1433152,
+            "maximum": 1433152,
+            "minimum": 1433152
+          }
+        },
+        "cycles": 4,
+        "decoded_frames": 1152,
+        "dmabuf_status": "none-observed",
+        "elapsed_seconds": 0.8454247290064814,
+        "growth": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 0
+        },
+        "held_image_checks": 24,
+        "limits": {
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fds": 0,
+          "heap_allocated_bytes": 65536,
+          "mapped_bytes": 0,
+          "maps": 0,
+          "vmrss_kib": 4096
+        },
+        "mode": "normal",
+        "monotonic_growth": {
+          "dmabuf_bytes": false,
+          "dmabuf_objects": false,
+          "dmabuf_references": false,
+          "fds": false,
+          "mapped_bytes": false,
+          "maps": false,
+          "vmrss_kib": false
+        },
+        "passed": true,
+        "returncode": 0,
+        "sample_span_seconds": 0.843595371,
+        "samples": 5,
+        "type": "summary",
+        "violations": [],
+        "warmup_cycles": 20
+      },
+      "initial_display": {
+        "dmabuf": {
+          "references": 0,
+          "status": "none-observed",
+          "unique_bytes": 0,
+          "unique_objects": 0
+        },
+        "dmabuf_bytes": 0,
+        "dmabuf_objects": 0,
+        "dmabuf_references": 0,
+        "fd_count": 4,
+        "map_count": 496,
+        "mapped_bytes": 166264832,
+        "monotonic_ns": 113822692006360,
+        "pid": 868026,
+        "process_start_time": "11382266",
+        "process_state": "S",
+        "rssanon_kib": 7440,
+        "rssfile_kib": 20496,
+        "rssshmem_kib": 0,
+        "timestamp_ns": 1789616105357584358,
+        "type": "initial",
+        "vmhwm_kib": 27936,
+        "vmrss_kib": 27936
+      },
+      "resource_ranges": {
+        "fd_count": {
+          "baseline": 4,
+          "minimum": 4,
+          "maximum": 4,
+          "final": 4,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "map_count": {
+          "baseline": 496,
+          "minimum": 496,
+          "maximum": 496,
+          "final": 496,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "mapped_bytes": {
+          "baseline": 168361984,
+          "minimum": 168361984,
+          "maximum": 168361984,
+          "final": 168361984,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "vmrss_kib": {
+          "baseline": 40400,
+          "minimum": 40400,
+          "maximum": 40400,
+          "final": 40400,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_references": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_objects": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "dmabuf_bytes": {
+          "baseline": 0,
+          "minimum": 0,
+          "maximum": 0,
+          "final": 0,
+          "peak_growth": 0,
+          "final_change": 0
+        },
+        "allocator_accounted_bytes": {
+          "baseline": 338928,
+          "minimum": 338928,
+          "maximum": 339520,
+          "final": 339328,
+          "peak_growth": 592,
+          "final_change": 400
+        }
+      },
+      "checkpoints": [
+        {
+          "allocator": {
+            "allocated": 338928,
+            "arena": 2670592,
+            "free": 2331664,
+            "mmap": 0,
+            "releasable": 1433152
+          },
+          "cycle": 0,
+          "decoded_frames": 960,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 496,
+          "mapped_bytes": 168361984,
+          "monotonic_ns": 113826863304991,
+          "pid": 868026,
+          "process_start_time": "11382266",
+          "process_state": "S",
+          "rssanon_kib": 9872,
+          "rssfile_kib": 30528,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789616109528882697,
+          "type": "sample",
+          "vmhwm_kib": 50464,
+          "vmrss_kib": 40400
+        },
+        {
+          "allocator": {
+            "allocated": 339328,
+            "arena": 2670592,
+            "free": 2331264,
+            "mmap": 0,
+            "releasable": 1433152
+          },
+          "cycle": 4,
+          "decoded_frames": 1152,
+          "dmabuf": {
+            "references": 0,
+            "status": "none-observed",
+            "unique_bytes": 0,
+            "unique_objects": 0
+          },
+          "dmabuf_bytes": 0,
+          "dmabuf_objects": 0,
+          "dmabuf_references": 0,
+          "fd_count": 4,
+          "map_count": 496,
+          "mapped_bytes": 168361984,
+          "monotonic_ns": 113827706900362,
+          "pid": 868026,
+          "process_start_time": "11382266",
+          "process_state": "S",
+          "rssanon_kib": 9872,
+          "rssfile_kib": 30528,
+          "rssshmem_kib": 0,
+          "timestamp_ns": 1789616110372478401,
+          "type": "sample",
+          "vmhwm_kib": 50912,
+          "vmrss_kib": 40400
+        }
+      ],
+      "guard": [
+        {
+          "event": "preflight",
+          "run_id": "28751dfe-f8ad-49c7-a08f-261605e8674c",
+          "identity": "avd",
+          "idle": true,
+          "module_loaded": true,
+          "userspace": {
+            "libva_drivers_path": "<redacted>",
+            "libva_driver_name": "v4l2_request",
+            "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+            "source_commit": "27da69dd5fcb438deab970061a2edcc68a9e1d93"
+          },
+          "time": "2026-09-16T20:35:05-0700"
+        },
+        {
+          "event": "start",
+          "run_id": "28751dfe-f8ad-49c7-a08f-261605e8674c",
+          "time": "2026-09-16T20:35:05-0700"
+        },
+        {
+          "event": "final",
+          "run_id": "28751dfe-f8ad-49c7-a08f-261605e8674c",
+          "status": "ok",
+          "returncode": 0,
+          "timed_out": false,
+          "wedged": false,
+          "abort_reason": null,
+          "idle": true,
+          "holders": [],
+          "time": "2026-09-16T20:35:10-0700"
+        }
+      ],
+      "raw_replay": {
+        "matched_frame_records": 1152,
+        "held_image_records": 24,
+        "early_export_identity_records": 0
+      },
+      "allocator_windows": [
+        {
+          "cycle_from": 0,
+          "cycle_to": 4,
+          "minimum": 338928,
+          "maximum": 339520
+        }
+      ]
+    }
+  },
+  "interrupted_client": {
+    "summary": {
+      "cycles": 2,
+      "error": "missing early-export identity/layout checks",
+      "limits": {
+        "dmabuf_bytes": 0,
+        "dmabuf_objects": 0,
+        "dmabuf_references": 0,
+        "fds": 0,
+        "heap_allocated_bytes": 65536,
+        "mapped_bytes": 0,
+        "maps": 0,
+        "vmrss_kib": 4096
+      },
+      "mode": "early",
+      "passed": false,
+      "type": "summary"
+    },
+    "log": [
+      {
+        "interrupted_client": "SIGKILL via bound pidfd",
+        "campaign_expected_failure": true,
+        "coordinator_returncode": 1,
+        "last_complete_cycle": 2,
+        "kernel_health_and_final_idle": "owned by outer hwguard"
+      },
+      {
+        "status": "ok",
+        "returncode": 0,
+        "timed_out": false,
+        "wedged": false,
+        "abort_reason": null,
+        "busy": false,
+        "owner": null
+      }
+    ],
+    "guard": [
+      {
+        "event": "preflight",
+        "run_id": "640f4cc7-a476-42f8-b35d-030719003433",
+        "identity": "avd",
+        "idle": true,
+        "module_loaded": true,
+        "userspace": {
+          "libva_drivers_path": "<redacted>",
+          "libva_driver_name": "v4l2_request",
+          "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+          "source_commit": "27da69dd5fcb438deab970061a2edcc68a9e1d93"
+        },
+        "time": "2026-09-16T20:35:00-0700"
+      },
+      {
+        "event": "start",
+        "run_id": "640f4cc7-a476-42f8-b35d-030719003433",
+        "time": "2026-09-16T20:35:00-0700"
+      },
+      {
+        "event": "final",
+        "run_id": "640f4cc7-a476-42f8-b35d-030719003433",
+        "status": "ok",
+        "returncode": 0,
+        "timed_out": false,
+        "wedged": false,
+        "abort_reason": null,
+        "idle": true,
+        "holders": [],
+        "time": "2026-09-16T20:35:05-0700"
+      }
+    ]
+  },
+  "exact_codec_pass_sets": {
+    "hevc": {
+      "suite": "hevc",
+      "passed": 144,
+      "total": 147,
+      "baseline_total": 147,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "778c3cf8724b7f3a9f9ad59d4633531f110e3d660d27f47721b96e148224d04f",
+      "passing_frames": 8889,
+      "high10": "off",
+      "profile_mismatch": false,
+      "subset": null,
+      "strict_comparison": {
+        "ok": true,
+        "baseline_suite": "JCT-VC-HEVC_V1",
+        "candidate_suite": "JCT-VC-HEVC_V1",
+        "baseline_total": "144/147",
+        "candidate_total": "144/147",
+        "lost_passes": [],
+        "new_passes": [],
+        "missing_vectors": [],
+        "extra_vectors": [],
+        "category_changes": [
+          {
+            "vector": "RPS_E_qualcomm_5",
+            "baseline": "decode_error",
+            "candidate": "checksum_mismatch"
+          },
+          {
+            "vector": "VPSSPSPPS_A_MainConcept_1",
+            "baseline": "decode_error",
+            "candidate": "checksum_mismatch"
+          }
+        ],
+        "first_differing_frames": [
+          {
+            "vector": "RPS_E_qualcomm_5",
+            "reason": "stream_md5",
+            "expected_md5": "c30d38bbd7ea483dc7ffe81325118e16",
+            "baseline_md5": null,
+            "candidate_md5": "b09ac8e0bd31a96d8354505d7c2ebdd5",
+            "index": 0,
+            "candidate": {
+              "index": 0,
+              "width": 416,
+              "height": 240,
+              "md5": "50cc4e6dd7d70f7908b9c3da2500320d",
+              "format": "yuv420p"
+            },
+            "native_sizes": [
+              "416x240"
+            ]
+          },
+          {
+            "vector": "VPSSPSPPS_A_MainConcept_1",
+            "reason": "stream_md5",
+            "expected_md5": "1ddf74263cb4953cfdfcf99c563d88ea",
+            "baseline_md5": null,
+            "candidate_md5": "ec9f5857591ac4c215d194deaf52167c",
+            "index": 0,
+            "candidate": {
+              "index": 0,
+              "width": 352,
+              "height": 288,
+              "md5": "c814e40e0f9b130f44f1abd9cbf10ae6",
+              "format": "yuv420p"
+            },
+            "native_sizes": [
+              "352x288",
+              "1280x720"
+            ]
+          }
+        ],
+        "errors": []
+      }
+    },
+    "avc": {
+      "suite": "avc",
+      "passed": 73,
+      "total": 135,
+      "baseline_total": 135,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "602cb6495b77514d11812c9a957682dc583172b24524ea29bc83bfa1d5803bb0",
+      "passing_frames": 10134,
+      "high10": "off",
+      "profile_mismatch": false,
+      "subset": null,
+      "strict_comparison": {
+        "ok": false,
+        "baseline_suite": "JVT-AVC_V1",
+        "candidate_suite": "JVT-AVC_V1",
+        "baseline_total": "73/135",
+        "candidate_total": "73/135",
+        "lost_passes": [],
+        "new_passes": [],
+        "missing_vectors": [],
+        "extra_vectors": [],
+        "category_changes": [
+          {
+            "vector": "FM1_FT_E",
+            "baseline": "decode_error",
+            "candidate": "software_fallback"
+          }
+        ],
+        "first_differing_frames": [],
+        "errors": [
+          "software fallback cannot produce a green hardware result: FM1_FT_E"
+        ]
+      }
+    },
+    "frext": {
+      "suite": "frext",
+      "passed": 27,
+      "total": 69,
+      "baseline_total": 69,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "4adeeb82abbc258c7f7247f1bcf7e9d70788bf0ea28ee209e498ab9c31746a51",
+      "passing_frames": 4077,
+      "high10": "ffmpeg",
+      "profile_mismatch": false,
+      "subset": null,
+      "strict_comparison": {
+        "ok": true,
+        "baseline_suite": "JVT-FR-EXT",
+        "candidate_suite": "JVT-FR-EXT",
+        "baseline_total": "27/69",
+        "candidate_total": "27/69",
+        "lost_passes": [],
+        "new_passes": [],
+        "missing_vectors": [],
+        "extra_vectors": [],
+        "category_changes": [],
+        "first_differing_frames": [],
+        "errors": []
+      }
+    },
+    "vp9": {
+      "suite": "vp9",
+      "passed": 216,
+      "total": 305,
+      "baseline_total": 305,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "37f79fb4b3c529f54f8f54b0e36040b410d75a2bf71d022f9726e5545bd129b0",
+      "passing_frames": 3334,
+      "high10": "off",
+      "profile_mismatch": false,
+      "subset": null,
+      "strict_comparison": {
+        "ok": true,
+        "baseline_suite": "VP9-TEST-VECTORS",
+        "candidate_suite": "VP9-TEST-VECTORS",
+        "baseline_total": "216/305",
+        "candidate_total": "216/305",
+        "lost_passes": [],
+        "new_passes": [],
+        "missing_vectors": [],
+        "extra_vectors": [],
+        "category_changes": [],
+        "first_differing_frames": [],
+        "errors": []
+      }
+    },
+    "vp9-high10": {
+      "suite": "vp9-high10",
+      "passed": 1,
+      "total": 1,
+      "baseline_total": 1,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "0f0bbd89d3001522d8aa7b86f3a0c1b5ed3d323767a22ed4d504e1b67c4d2df5",
+      "passing_frames": 10,
+      "high10": "off",
+      "profile_mismatch": false,
+      "subset": {
+        "rationale": "explicit --vectors selection; not a full-suite total",
+        "selected": [
+          "vp92-2-20-10bit-yuv420.webm"
+        ]
+      }
+    },
+    "overrides": {
+      "suite": "overrides",
+      "passed": 5,
+      "total": 5,
+      "baseline_total": 5,
+      "lost": [],
+      "gained": [],
+      "suite_definition_sha256": "602cb6495b77514d11812c9a957682dc583172b24524ea29bc83bfa1d5803bb0",
+      "passing_frames": 1233,
+      "high10": "off",
+      "profile_mismatch": true,
+      "subset": {
+        "rationale": "explicit --vectors selection; not a full-suite total",
+        "selected": [
+          "BA3_SVA_C",
+          "MR2_TANDBERG_E",
+          "MR3_TANDBERG_B",
+          "MR4_TANDBERG_C",
+          "MR5_TANDBERG_C"
+        ]
+      }
+    }
+  },
+  "codec_guard": [
+    {
+      "event": "preflight",
+      "run_id": "bdf975e8-403c-439b-a2ab-2a9b7e69df8d",
+      "identity": "avd",
+      "idle": true,
+      "module_loaded": true,
+      "userspace": {
+        "libva_drivers_path": "<redacted>",
+        "libva_driver_name": "v4l2_request",
+        "loaded_module_limit": "sysfs shows whether apple_avd is present; this guard cannot certify which module binary was loaded earlier or that every patch is active",
+        "source_commit": "27da69dd5fcb438deab970061a2edcc68a9e1d93"
+      },
+      "time": "2026-09-16T20:35:10-0700"
+    },
+    {
+      "event": "start",
+      "run_id": "bdf975e8-403c-439b-a2ab-2a9b7e69df8d",
+      "time": "2026-09-16T20:35:10-0700"
+    },
+    {
+      "event": "final",
+      "run_id": "bdf975e8-403c-439b-a2ab-2a9b7e69df8d",
+      "status": "ok",
+      "returncode": 0,
+      "timed_out": false,
+      "wedged": false,
+      "abort_reason": null,
+      "idle": true,
+      "holders": [],
+      "time": "2026-09-16T20:38:46-0700"
+    }
+  ],
+  "prior_failed_evidence": {
+    "first_soak_seconds": 616.048414118,
+    "second_soak_seconds": 1426.146430501,
+    "disposition": "Both previous foreign-client-aborted soaks remain failed and separate; their durations are never combined with this campaign.",
+    "archive": "../resource-churn-2026-09-16/raw-evidence.tar.xz",
+    "report": "../resource-churn-validation-2026-09-16.json",
+    "merged_prs": [
+      71,
+      76
+    ]
+  },
+  "limits": [
+    "One initialized VA display per campaign, four fixed synthetic 640x360 clips, 24 frames each; normal and early export decode/drain/seek/flush/redecode.",
+    "FD and dma-buf values must equal initial-display state at every checkpoint. Mapping/RSS/allocator growth is measured after 20 warmup lifecycles, using the unchanged reviewed limits.",
+    "Mapped/RSS values need not be flat: decreases are retained and peak positive growth is audited. Every positive mapped-byte change must be explained by allocator arena/mmap growth.",
+    "The 4 MiB mapped/RSS and 64 KiB allocated-byte bounds are workload-specific, not universal. mallinfo values include libc cache retention and are not driver ownership counters.",
+    "dma-buf none-observed means no process descriptors at quiescent checkpoints, not absence of global kernel allocations; unsampled descendants are not measured.",
+    "The intentional SIGKILL campaign remains a failed campaign by design; only its bounded cleanup, healthy outer guard and subsequent decode check pass. Process exit reclaim is not in-process ownership proof.",
+    "The pre-session firmware timeout remains unexplained. One existing-module reload was separately authorized and performed before all accepted tests; no automatic reset or journal-cutoff advancement occurred.",
+    "On-disk module provenance is recorded; the in-memory module hash is not measured.",
+    "Known failing codec vectors and the AVC non-green software-fallback verdict remain failures. Selected high-depth and profile-override subsets do not enlarge default support totals.",
+    "This selected userspace build is not installed. No package pin, kernel source, display/client configuration, support count or stability tier is changed.",
+    "No browser rendering, concurrent API calls, other dimensions, suspend/reboot or boot stability is qualified."
+  ],
+  "archive": {
+    "path": "raw-evidence.tar.xz",
+    "sha256": "cf42950f269ba3392d6795ddf4197f7def08a052283119d30d9cff1ac78c5d7d",
+    "members": 1394,
+    "redaction": "Only maintainer home-directory prefix replaced with <workspace> in public text; original and public hashes retained. Synthetic generated/pinned CC0 media included unchanged. No executable, external corpus media or core dump redistributed."
+  }
+}
