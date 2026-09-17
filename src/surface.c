@@ -449,6 +449,7 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 			      uint32_t pixelformat)
 {
 	struct v4l2r_surface_backing *backing;
+	bool saw_enomem = false;
 
 	backing = calloc(1, sizeof(*backing));
 	if (!backing)
@@ -594,8 +595,30 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 			.memory = V4L2_MEMORY_MMAP,
 			.format = allocation,
 		};
-		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0)
+		/* Query CAPTURE capabilities before allocating: mmap cache
+		 * hints must be requested on the CREATE_BUFS that allocates. */
+#if HAVE_V4L2_MEMORY_FLAG_NON_COHERENT
+		{
+			struct v4l2_create_buffers probe = {
+				.count = 0,
+				.memory = V4L2_MEMORY_MMAP,
+				.format = allocation,
+			};
+
+			if (ioctl(fd, VIDIOC_CREATE_BUFS, &probe) < 0) {
+				if (errno == ENOMEM)
+					saw_enomem = true;
+				goto next;
+			}
+			if (probe.capabilities & V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS)
+				buffers.flags = V4L2_MEMORY_FLAG_NON_COHERENT;
+		}
+#endif
+		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0) {
+			if (errno == ENOMEM)
+				saw_enomem = true;
 			goto next;
+		}
 
 		buffer.type = format.type;
 		buffer.index = buffers.index;
@@ -645,7 +668,8 @@ next:
 	}
 
 	free(backing);
-	return VA_STATUS_ERROR_OPERATION_FAILED;
+	return saw_enomem ? VA_STATUS_ERROR_ALLOCATION_FAILED :
+			    VA_STATUS_ERROR_OPERATION_FAILED;
 }
 
 /* Backing for a bare (unbound) surface, sized like the surface itself. */
