@@ -8,8 +8,11 @@ status database. Check each ticket's current labels, comments and native depende
 ## Next contributor wave
 
 Use [the contributor entry point](CONTRIBUTOR_START.md) for bounded offline tasks,
-public inputs and the live ready queues. It includes client fixes, HEVC reference
-tracing, a VP9 state validator and an H.264 field-feasibility investigation.
+public inputs and the live ready queues. It routes remaining real H.264 parser/admission work and a coherent HEVC
+reference-content client adapter. The reference traces, VP9 model, field-feasibility
+research and reference-memory audit are completed inputs. Allocation retry/startup
+has an isolated candidate; capture-DMA coherence and runtime qualification remain
+explicit gates. Check live claims before starting.
 The current GitHub roadmap records the accepted resource/qualification evidence,
 active claims and remaining hardware gates; historical r11 figures below are a
 starting snapshot. Research acceptance never promises a new hardware capability.
@@ -30,7 +33,7 @@ Keep full-suite denominators, unsupported formats, software fallback and unteste
 visible. Compiled-in codecs, correct decoder pixels and a successful boot are different
 kinds of evidence.
 
-Current M1 r11 evidence: 35 sanitizer cases; 72,000 generated parser inputs within three
+Historical M1 r11 starting snapshot: 35 sanitizer cases; 72,000 generated parser inputs within three
 cases; HEVC 144/147, AVC 73/135, opt-in High 10 FRExt 27/69 and VP9 216/305; 864 additional
 generated hardware frame comparisons. These results use the companion kernel patchset.
 [Complete record](https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/codec-validation-r11-2026-09-15.json).
