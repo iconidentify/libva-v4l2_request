@@ -6,3 +6,6 @@ contact_links:
 - name: Check repository ownership
   url: https://github.com/iconidentify/libva-v4l2_request/blob/avd-fixes/CONTRIBUTING.md
   about: Choose the driver or companion repository for your report.
+- name: Find a bounded contribution
+  url: https://github.com/iconidentify/libva-v4l2_request/blob/avd-fixes/docs/CONTRIBUTOR_START.md
+  about: Choose a ready offline task and read the shared claim workflow.
