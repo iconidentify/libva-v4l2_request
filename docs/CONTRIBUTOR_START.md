@@ -26,15 +26,18 @@ merged prerequisites are already there. Re-read live claims before choosing.
 | [HEVC reference-content adapter #82](https://github.com/iconidentify/omarchy-m1-video/issues/82) | Connect actual client pause/drain/retention and verified coherent allocation identity; retain rejection where the APIs cannot prove them | Offline implementation available after the synthetic observer in [PR #83](https://github.com/iconidentify/omarchy-m1-video/pull/83); no real copy path yet |
 | [H.264 actual admission #79](https://github.com/iconidentify/omarchy-m1-video/issues/79) | Exercise real Annex-B/AVCC parser-to-issue behavior, rejected suffixes and config/flush transitions before any profile remap | Offline implementation available after the partial guards in [PR #80](https://github.com/iconidentify/omarchy-m1-video/pull/80) |
 | [HEVC parameter sets #44](https://github.com/iconidentify/omarchy-m1-video/issues/44) | Local FFmpeg parser fix and full-output software regressions | Claimed by SarthakU; coordinate, do not duplicate |
-| [AVD allocation retry #81](https://github.com/iconidentify/omarchy-m1-video/issues/81) | Actual allocator/startup failure regressions and isolated candidate module build | [PR #84](https://github.com/iconidentify/omarchy-m1-video/pull/84) owns the candidate; later guarded runtime qualification remains separate |
+| [AV1 startup unwind #86](https://github.com/iconidentify/omarchy-m1-video/issues/86) | Reproduce the untested AV1 allocation-failure path and prove a minimal isolated cleanup repair with actual-source tests | Ready offline; no AV1 hardware-support claim |
+| [AVD allocation retry #81](https://github.com/iconidentify/omarchy-m1-video/issues/81) | Actual allocator/startup failure regressions and isolated candidate module build | [PR #84](https://github.com/iconidentify/omarchy-m1-video/pull/84) owns the candidate; later guarded runtime qualification is [#87](https://github.com/iconidentify/omarchy-m1-video/issues/87) |
 | [Capture backing #52](https://github.com/iconidentify/omarchy-m1-video/issues/52) / [driver #90](https://github.com/iconidentify/libva-v4l2_request/issues/90) | Establish allocation/export/import/CPU coherence before changing cache policy, then qualify Chromium | Blocked on that reviewed contract; respect #90's existing contributor claim |
 
 Completed research/tools are inputs, not new assignments: client-selection #41/#73,
 HEVC control traces driver #84, VP9 state validator companion #42, field-feasibility
 #43 and reference-memory audit #77. Their hardware/feature parents remain open.
-Driver [#22](https://github.com/iconidentify/libva-v4l2_request/issues/22) fuzzing and
-[#36](https://github.com/iconidentify/libva-v4l2_request/issues/36) concurrency retain
-existing claims. The live queue can change after this dated snapshot.
+Driver [#22](https://github.com/iconidentify/libva-v4l2_request/issues/22) fuzzing
+retains its active claim. [#36](https://github.com/iconidentify/libva-v4l2_request/issues/36)
+concurrency has an expired claim (2026-09-17 19:15 UTC); its remaining real-worker and
+guarded hardware gates are blocked. Preserve the merged work and coordinate a fresh
+bounded claim before taking it over. The live queue can change after this dated snapshot.
 
 Check the **open, ready** queues in the
 [driver](https://github.com/iconidentify/libva-v4l2_request/issues?q=is%3Aissue%20is%3Aopen%20label%3Astatus%3Aready)
