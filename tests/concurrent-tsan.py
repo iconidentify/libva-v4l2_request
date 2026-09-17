@@ -85,11 +85,12 @@ def main():
         subprocess.run(['meson', 'compile', '-C', str(build), 'tests/concurrent-stress'], env=env, check=True, timeout=120, stdout=subprocess.DEVNULL)
         for schedule in ['threads 1 12 3 1', 'threads 2 12 3 2', 'threads 4 12 3 4',
                          'teardown 2 12 3 812734691', 'teardown 4 12 3 812734691', 'failure 4 12 3 3372110043',
-                         'overlap 2 6 3 73204115', 'overlap-actor 2 6 3 1946285037']:
+                         'overlap 2 6 3 73204115', 'overlap-actor 2 6 3 1946285037',
+                         'overlap-late 2 6 3 73204115', 'overlap-counters']:
             print('tsan-schedule: ' + schedule, flush=True)
             subprocess.run([str(build / 'tests/concurrent-stress')] + schedule.split(), env=env,
                            check=True, timeout=90, stdout=subprocess.DEVNULL)
-    print('concurrent-tsan: EXECUTED and PASSED (8 schedules x 3 repetitions)')
+    print('concurrent-tsan: EXECUTED and PASSED (9 schedules x 3 repetitions plus counter oracle)')
     return 0
 
 if __name__ == '__main__':

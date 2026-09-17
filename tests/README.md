@@ -111,8 +111,8 @@ This interleaves work in one thread; it does not measure concurrent API calls or
 
 The `concurrent-stress` Meson cases (issue #36) add offline caller schedules: they call the
 real public entrypoints from multiple threads against an in-memory model decoder
-(no device, no real sleeping — the model completes queued work after a seeded number
-of model-time ticks). `threads-1/2/4` decode mixed-codec
+(no device — the model completes queued work after a seeded number
+of model-time ticks, with short real sleeps pacing the held overlap window). `threads-1/2/4` decode mixed-codec
 frames, read them back through GetImage, exported dma-bufs and derived images, and
 destroy each context while later streams continue; `teardown-1/2/4` destroy one
 context mid-decode and require every published frame to complete byte-exact while
@@ -126,7 +126,11 @@ serialization invariant (at most one active locked section), and the
 — the model device holds a chosen request so a `vaSyncSurface` spins inside the
 driver holding api_mutex, and the required unlocked entrypoint executions are
 recorded against it, fired by a valid decoder thread (`overlap-2`) or by the
-failure actor's own unlocked operations (`overlap-actor-2`). The counters are
+failure actor's own unlocked operations (`overlap-actor-2`). The selected sync
+waiter must be observed inside the driver before a thread-local delta counts eight
+outer calls from the chosen worker. Nested helpers and same-thread calls are
+excluded. `overlap-late-2` forces a waiter to arrive after the latched release;
+`overlap-counters` checks counter ownership and nesting. The counters are
 printed per repetition as `driver_overlap …`. The model device is the decode
 oracle: slice bytes are hashed when a request is queued and the completion writes a
 pattern derived from that hash into the target CAPTURE plane, so lost frames,
@@ -237,9 +241,9 @@ Executed CI configurations and their expected Meson test sets (codec-gated tests
 register only when the codec is compiled in). The counts are re-measured from the
 registered set (enumerate the selected build rather than relying on historical
 counts) — they include the r11 regression suite, the
-lifecycle, failure-cleanup, diagnostics, corpus and CI checks, and the 12
-concurrent-stress cases (7 threaded schedules, 4 process checks, 1 ThreadSanitizer
-pass; the numbers in earlier revisions predated several of those additions):
+lifecycle, failure-cleanup, diagnostics, corpus and CI checks, and the
+concurrent-stress schedules, process checks, counter oracle and ThreadSanitizer
+check; historical counts predate several additions:
 
 | Configuration | Codecs | Expected tests |
 | --- | --- | --- |

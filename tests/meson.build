@@ -170,6 +170,10 @@ test('concurrent-overlap-2', concurrent_stress,
      args: ['overlap', '2', '6', '10', '73204115'], timeout: 120)
 test('concurrent-overlap-actor-2', concurrent_stress,
      args: ['overlap-actor', '2', '6', '10', '1946285037'], timeout: 120)
+test('concurrent-overlap-late-2', concurrent_stress,
+     args: ['overlap-late', '2', '6', '10', '73204115'], timeout: 120)
+test('concurrent-overlap-counters', concurrent_stress,
+     args: ['overlap-counters'], timeout: 30)
 
 picture = executable('picture', 'picture.c', driver_sources,
   c_args: ['-UNDEBUG'],

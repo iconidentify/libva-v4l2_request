@@ -86,6 +86,9 @@ static _Atomic unsigned overlap_max_unlocked_during_locked;
 static _Atomic unsigned long overlap_locked_sections;
 static _Atomic unsigned long overlap_unlocked_calls;
 static _Atomic unsigned long overlap_unlocked_over_locked;
+static _Thread_local unsigned overlap_unlocked_depth;
+static _Thread_local unsigned overlap_locked_depth;
+static _Thread_local unsigned long overlap_thread_events;
 
 static void overlap_max(_Atomic unsigned *counter, unsigned value)
 {
@@ -98,6 +101,7 @@ static void overlap_max(_Atomic unsigned *counter, unsigned value)
 
 void v4l2r_overlap_locked_enter(void)
 {
+	overlap_locked_depth++;
 	unsigned active = atomic_fetch_add(&overlap_locked_active, 1) + 1;
 
 	overlap_max(&overlap_max_locked, active);
@@ -107,14 +111,20 @@ void v4l2r_overlap_locked_enter(void)
 void v4l2r_overlap_locked_exit(void)
 {
 	atomic_fetch_sub(&overlap_locked_active, 1);
+	overlap_locked_depth--;
 }
 
 void v4l2r_overlap_unlocked_enter(void)
 {
+	/* Create/DestroyImage call instrumented buffer helpers internally.
+	 * Count only the outer unlocked call, never nesting as another caller. */
+	if (overlap_unlocked_depth++ || overlap_locked_depth)
+		return;
 	unsigned active = atomic_fetch_add(&overlap_unlocked_active, 1) + 1;
 
 	atomic_fetch_add(&overlap_unlocked_calls, 1);
 	if (atomic_load(&overlap_locked_active)) {
+		overlap_thread_events++;
 		atomic_fetch_add(&overlap_unlocked_over_locked, 1);
 		overlap_max(&overlap_max_unlocked_during_locked, active);
 	}
@@ -122,7 +132,14 @@ void v4l2r_overlap_unlocked_enter(void)
 
 void v4l2r_overlap_unlocked_exit(void)
 {
+	if (--overlap_unlocked_depth || overlap_locked_depth)
+		return;
 	atomic_fetch_sub(&overlap_unlocked_active, 1);
+}
+
+unsigned long v4l2r_overlap_thread_events(void)
+{
+	return overlap_thread_events;
 }
 
 void v4l2r_overlap_configure(bool enable)

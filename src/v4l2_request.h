@@ -480,9 +480,8 @@ bool v4l2r_probe_h264_10bit(int fd, uint32_t output_type);
 /* --- in-driver concurrency instrumentation (api.c); issue #36, AC2 ---
  *
  * api_mutex serializes the locked public entrypoints against each other,
- * so the only pair of public entrypoints that can genuinely execute
- * driver code at the same time is a locked one (holding api_mutex) and an
- * unlocked one. This hook counts exactly that, from inside the driver —
+ * so locked entrypoints on one display cannot overlap each other.
+ * This hook measures locked/unlocked overlap, from inside the driver —
  * never at the caller. It is a test hook in the spirit of
  * v4l2r_diag_configure: disabled it costs one relaxed atomic load per
  * entrypoint, and nothing but the concurrency harness enables it. */
@@ -499,12 +498,14 @@ struct v4l2r_overlap_stats {
 
 extern _Atomic bool v4l2r_overlap_enabled;
 
-/* Enable (and zero) or disable the counters. Test harness only. */
+/* Enable (and zero) or disable global counters with all callers quiescent.
+ * Test harness only, one display per process. Thread-local event counters
+ * are monotonic for the lifetime of each thread; use before/after deltas. */
 void v4l2r_overlap_configure(bool enable);
+unsigned long v4l2r_overlap_thread_events(void);
 /* Snapshot the current counters (zeros while disabled). */
 struct v4l2r_overlap_stats v4l2r_overlap_snapshot(void);
-/* Locked sections active right now; the harness's overlap gate waits
- * for this to become nonzero before firing unlocked operations. */
+/* Generic active-section snapshot; this does not identify a gated waiter. */
 unsigned v4l2r_overlap_locked_active(void);
 
 void v4l2r_overlap_locked_enter(void);
