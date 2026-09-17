@@ -180,6 +180,14 @@ void v4l2r_diag_configure(const struct v4l2r_diag_options *options)
 	pthread_mutex_unlock(&diag.mutex);
 }
 
+void v4l2r_diag_run_id(char out[17])
+{
+	pthread_mutex_lock(&diag.mutex);
+	diag_init_locked();
+	memcpy(out, diag.run, 17);
+	pthread_mutex_unlock(&diag.mutex);
+}
+
 uint32_t v4l2r_diag_context_serial(void)
 {
 	uint32_t serial;

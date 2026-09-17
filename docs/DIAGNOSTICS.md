@@ -100,6 +100,13 @@ setup` default `debugoptimized`, output to `/dev/null`): about 0.5 µs per
 written JSON record, and about 6 ns for a rate-limited record or a debug record
 in text mode. Run `build/tests/diagnostics overhead` to measure a build.
 
+## Related opt-in traces
+
+`LIBVA_V4L2_HEVC_REFTRACE` writes a separate per-request record of the HEVC
+reference controls as submitted (schema `libva-v4l2request.hevc-refs/1`,
+sharing this run identifier); see [HEVC_REFTRACE.md](HEVC_REFTRACE.md). It is
+off by default and does not change these diagnostics.
+
 ## Reporting a problem
 
 Reproduce with `LIBVA_V4L2_DIAG=json`, keep the records for the failing `ctx`,

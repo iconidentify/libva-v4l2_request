@@ -96,6 +96,19 @@ if conf.get('HAVE_V4L2_CTRL_HEVC') == 1
   foreach case : ['profiles', 'picture']
     test('hevc-capability-' + case, hevc_capability, args: [case], timeout: 30)
   endforeach
+  # Opt-in reference-control trace (issue #84, docs/HEVC_REFTRACE.md): every
+  # record must match the controls the in-memory device captured, tracing
+  # must not change the submitted bytes or the VA status, and the checker
+  # validates the writer's real output against its own fixtures.
+  hevc_reftrace = executable('hevc-reftrace', 'hevc-reftrace.c', driver_sources,
+    c_args: ['-UNDEBUG'],
+    include_directories: [root_inc, include_directories('../src')],
+    dependencies: [libva_dep, libdrm_dep, threads_dep],
+    link_args: ['-Wl,--wrap=ioctl', '-Wl,--wrap=poll', '-Wl,--wrap=__poll_chk'])
+  foreach case : ['match-avd', 'match-ltr-sps', 'match-generic', 'long-term', 'slices',
+                  'many-slices', 'failure', 'environment']
+    test('hevc-reftrace-' + case, hevc_reftrace, args: [case], timeout: 30)
+  endforeach
 endif
 
 if conf.get('HAVE_V4L2_CTRL_VP9') == 1
@@ -312,6 +325,15 @@ test('corpus-integrity', python3, args: files('corpus-integrity.py'), timeout: 3
 test('conformance-result', python3, args: [files('compare-results.py'), '--self-test'], timeout: 30)
 test('conformance-runner', python3, args: [files('conformance-runner.py')], timeout: 30)
 test('diag-schema', python3, args: [files('diag-schema.py'), diagnostics], timeout: 30)
+# Offline differential checker for HEVC reference traces (issue #84); with
+# the HEVC backend built it also validates the writer's real records.
+if conf.get('HAVE_V4L2_CTRL_HEVC') == 1
+  test('hevc-reftrace-check', python3,
+       args: [files('hevc-reftrace-check.py'), '--self-test', hevc_reftrace], timeout: 30)
+else
+  test('hevc-reftrace-check', python3,
+       args: [files('hevc-reftrace-check.py'), '--self-test'], timeout: 30)
+endif
 test('hwguard', python3, args: [files('hwguard.py'), '--self-test'], timeout: 60)
 test('resource-churn', python3, args: [files('resource-churn.py'), 'self-test'], timeout: 30)
 # The real FFmpeg workload is exercised only where its development libraries
