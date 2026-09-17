@@ -15,7 +15,7 @@ generator.
 | `synthetic-poc-b.jsonl` | first difference: picture 2 `poc` |
 | `synthetic-slice-refs-b.jsonl` | first difference: picture 4 `req[0].slices[0].l0` |
 | `synthetic-short-b.jsonl` | first difference: trace B ends after picture 3 |
-| `synthetic-overflow-b.jsonl` | first difference: picture 4 `req[0].error` (content unavailable) |
+| `synthetic-overflow-b.jsonl` | rejected: unavailable record content |
 | `synthetic-unknown-field-b.jsonl` | first difference: picture 3 unknown field `future_field` |
 | `synthetic-truncated.jsonl` | rejected: truncated record |
 | `synthetic-missing-run.jsonl` | rejected: missing run identity |

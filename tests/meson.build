@@ -106,7 +106,7 @@ if conf.get('HAVE_V4L2_CTRL_HEVC') == 1
     dependencies: [libva_dep, libdrm_dep, threads_dep],
     link_args: ['-Wl,--wrap=ioctl', '-Wl,--wrap=poll', '-Wl,--wrap=__poll_chk'])
   foreach case : ['match-avd', 'match-ltr-sps', 'match-generic', 'long-term', 'slices',
-                  'many-slices', 'failure', 'environment']
+                  'many-slices', 'failure', 'environment', 'fifo', 'write-failure']
     test('hevc-reftrace-' + case, hevc_reftrace, args: [case], timeout: 30)
   endforeach
 endif

@@ -155,7 +155,7 @@ void v4l2r_diag_configure(const struct v4l2r_diag_options *options);
  * One JSON line per request the HEVC backend actually queued, carrying the
  * reference controls as submitted (DPB slots, RPS lists, slice reference
  * indices). Enabled only by LIBVA_V4L2_HEVC_REFTRACE=stderr|<file>; when
- * disabled it costs one relaxed atomic load per request and writes nothing.
+ * disabled it costs one relaxed atomic load plus ordinal bookkeeping and writes nothing.
  * It never changes what is submitted. See docs/HEVC_REFTRACE.md. */
 #define V4L2R_HEVC_TRACE_SCHEMA	"libva-v4l2request.hevc-refs/1"
 

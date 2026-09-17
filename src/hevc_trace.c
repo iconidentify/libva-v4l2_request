@@ -9,7 +9,7 @@
  * changing what is submitted.
  *
  * Off unless LIBVA_V4L2_HEVC_REFTRACE names a sink. Disabled cost: one
- * relaxed atomic load per submitted request. Records carry only small
+ * relaxed atomic load plus ordinal bookkeeping per submitted request. Records carry only small
  * integers derived from the controls (POC values, CAPTURE buffer indices,
  * flags, list indices); never bitstream bytes, timestamps used as addresses,
  * pointers, file paths or the environment value itself.
@@ -18,6 +18,7 @@
  */
 #define _GNU_SOURCE
 #include <errno.h>
+#include <fcntl.h>
 #include <inttypes.h>
 #include <pthread.h>
 #include <stdarg.h>
@@ -25,6 +26,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include "v4l2_request.h"
 
@@ -67,7 +70,29 @@ static void trace_init_locked(void)
 		trace.enabled = true;
 		trace.sink = NULL;
 	} else {
-		FILE *out = fopen(sink, "a");
+		/* Opening a FIFO while holding api_mutex can freeze decoding before
+		 * the first record. Path sinks must be regular files; never inherit
+		 * their descriptor into an unrelated exec'd child. */
+		int fd = open(sink, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC | O_NONBLOCK, 0600);
+		FILE *out = NULL;
+		struct stat info;
+
+		if (fd >= 0) {
+			int error = 0;
+			if (fstat(fd, &info) < 0)
+				error = errno;
+			else if (!S_ISREG(info.st_mode))
+				error = EINVAL;
+			else {
+				out = fdopen(fd, "a");
+				if (!out)
+					error = errno;
+			}
+			if (!out) {
+				close(fd);
+				errno = error;
+			}
+		}
 
 		if (!out) {
 			/* Do not echo the value: it is arbitrary environment input. */
@@ -264,8 +289,15 @@ void v4l2r_hevc_trace_request(const struct v4l2r_context *ctx,
 	}
 
 	/* One write per record keeps lines from concurrent contexts intact. */
-	fwrite(l.buf, 1, l.pos, trace.sink ? trace.sink : stderr);
-	fflush(trace.sink ? trace.sink : stderr);
+	FILE *out = trace.sink ? trace.sink : stderr;
+	if (fwrite(l.buf, 1, l.pos, out) != l.pos || fflush(out) != 0 || ferror(out)) {
+		int error = errno ? errno : EIO;
+		trace.enabled = false;
+		atomic_store(&trace_state, 0);
+		v4l2r_diag(NULL, V4L2R_DIAG_LEVEL_WARNING, V4L2R_DIAG_CLIENT,
+			   "hevc-reftrace", -error,
+			   "reference trace write failed; capture incomplete and tracing disabled");
+	}
 	pthread_mutex_unlock(&trace.mutex);
 }
 

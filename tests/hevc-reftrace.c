@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <linux/media.h>
 #define v4l2r_codec_hevc v4l2r_test_codec_hevc
@@ -821,6 +822,48 @@ static void case_environment(void)
 }
 
 /* Real writer output for the checker's schema validation (stdout). */
+/* A named FIFO without a reader must not hang the client in trace init. */
+static void case_fifo(void)
+{
+    char directory[] = "/tmp/hevc-reftrace-fifo-XXXXXX";
+    char path[256];
+    assert(mkdtemp(directory));
+    assert(snprintf(path, sizeof(path), "%s/pipe", directory) > 0);
+    assert(mkfifo(path, 0600) == 0);
+    assert(setenv("LIBVA_V4L2_HEVC_REFTRACE", path, 1) == 0);
+    v4l2r_hevc_trace_configure(NULL);
+    assert(!v4l2r_hevc_trace_enabled());
+    unsetenv("LIBVA_V4L2_HEVC_REFTRACE");
+    assert(unlink(path) == 0 && rmdir(directory) == 0);
+}
+
+static void case_write_failure(void)
+{
+    FILE *sink = fopen("/dev/full", "w");
+    VAStatus status[4];
+    struct run_capture captures[2];
+    assert(sink);
+    for (unsigned int enabled = 0; enabled < 2; enabled++) {
+        v4l2r_hevc_trace_configure(&(struct v4l2r_hevc_trace_options) {
+            .enable = enabled, .sink = sink });
+        log_reset();
+        setup(true, V4L2_STATELESS_HEVC_DECODE_MODE_FRAME_BASED, 32);
+        sequence_basic(false, status);
+        for (unsigned int i = 0; i < 4; i++)
+            assert(status[i] == VA_STATUS_SUCCESS);
+        captures[enabled] = snapshot_capture();
+        assert(!v4l2r_hevc_trace_enabled());
+        teardown();
+    }
+    assert(captures[0].bytes == captures[1].bytes);
+    assert(!memcmp(captures[0].data, captures[1].data, captures[0].bytes));
+    assert(captures[0].requests == captures[1].requests);
+    free(captures[0].data);
+    free(captures[1].data);
+    v4l2r_hevc_trace_configure(NULL);
+    fclose(sink);
+}
+
 static void emit_samples(void)
 {
     VAStatus st[8];
@@ -865,11 +908,15 @@ int main(int argc, char **argv)
         case_failure();
     else if (!strcmp(which, "environment"))
         case_environment();
+    else if (!strcmp(which, "fifo"))
+        case_fifo();
+    else if (!strcmp(which, "write-failure"))
+        case_write_failure();
     else if (!strcmp(which, "emit-samples"))
         emit_samples();
     else {
         fprintf(stderr, "usage: %s match-avd|match-ltr-sps|match-generic|long-term|"
-                "slices|many-slices|failure|environment|emit-samples\n", argv[0]);
+                "slices|many-slices|failure|environment|fifo|write-failure|emit-samples\n", argv[0]);
         return 2;
     }
     if (strcmp(which, "emit-samples"))

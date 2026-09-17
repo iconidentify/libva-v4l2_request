@@ -9,7 +9,7 @@ reference controls. It never guesses: malformed, truncated, incompatible or
 ambiguous inputs are rejected with exit status 2 rather than compared.
 
     hevc-reftrace-check.py validate FILE
-    hevc-reftrace-check.py compare A B [--context CTX_A CTX_B] [--json]
+    hevc-reftrace-check.py compare A B [--context CTX_A CTX_B] [--expected-pictures N] [--json]
     hevc-reftrace-check.py --self-test [hevc-reftrace test binary]
     hevc-reftrace-check.py --write-fixtures
 
@@ -20,6 +20,7 @@ buffer (the earlier record whose ``target`` is that ``buf``), not by the raw
 buffer index, so two clients with different buffer allocation can still be
 compared. Fields this version does not know are preserved and compared last.
 """
+import copy
 import json
 import pathlib
 import re
@@ -30,7 +31,9 @@ import tempfile
 SCHEMA = "libva-v4l2request.hevc-refs/1"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures" / "hevc-reftrace"
-RUN_RE = re.compile(r"^[0-9a-f]{16}$")
+RUN_RE = re.compile(r"[0-9a-f]{16}")
+MAX_RECORD_BYTES = 4096
+MAX_TRACE_BYTES = 64 * 1024 * 1024
 
 TOP_INT = ("seq", "ctx", "pic", "req", "first", "last", "target", "poc", "irap",
            "idr", "ltr_sps", "reorder", "total_curr")
@@ -60,7 +63,11 @@ def load(path):
     """Parse one trace file; reject anything the comparison cannot trust."""
     path = pathlib.Path(path)
     try:
-        text = path.read_text(encoding="utf-8")
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_TRACE_BYTES + 1)
+        if len(raw) > MAX_TRACE_BYTES:
+            raise Reject(f"{path}: trace exceeds {MAX_TRACE_BYTES} bytes")
+        text = raw.decode("utf-8")
     except (OSError, UnicodeDecodeError) as error:
         raise Reject(f"{path}: cannot read: {error}")
     if not text:
@@ -70,16 +77,19 @@ def load(path):
     records = []
     run = None
     for number, line in enumerate(text.splitlines(), 1):
+        if len(line.encode("utf-8")) + 1 > MAX_RECORD_BYTES:
+            raise Reject(f"{path}:{number}: record exceeds byte bound")
         try:
-            record = json.loads(line)
-        except json.JSONDecodeError as error:
-            raise Reject(f"{path}:{number}: truncated or malformed record ({error.msg})")
+            record = json.loads(line, object_pairs_hook=unique_object,
+                                parse_constant=reject_constant)
+        except (json.JSONDecodeError, RecursionError) as error:
+            raise Reject(f"{path}:{number}: truncated or malformed record ({error})")
         if not isinstance(record, dict):
             raise Reject(f"{path}:{number}: record is not an object")
         if record.get("schema") != SCHEMA:
             raise Reject(f"{path}:{number}: incompatible schema {record.get('schema')!r}, "
                          f"expected {SCHEMA!r}")
-        if not isinstance(record.get("run"), str) or not RUN_RE.match(record["run"]):
+        if not isinstance(record.get("run"), str) or not RUN_RE.fullmatch(record["run"]):
             raise Reject(f"{path}:{number}: missing run identity")
         if run is None:
             run = record["run"]
@@ -90,47 +100,96 @@ def load(path):
         if record["seq"] != number:
             raise Reject(f"{path}:{number}: seq {record['seq']} breaks the sequence "
                          f"(expected {number}): truncated or reordered capture")
+        if "_line" in record or "src" in record:
+            raise Reject(f"{path}:{number}: reserved checker field")
         if "error" in record:
-            for key in ("ctx", "pic", "req"):
-                if not is_int(record.get(key)):
-                    raise Reject(f"{path}:{number}: error record without {key}")
-        else:
-            check_full_record(path, number, record)
+            raise Reject(f"{path}:{number}: unavailable record content: {record['error']}")
+        check_full_record(path, number, record)
         record["_line"] = number
         records.append(record)
     return records
 
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise Reject(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    raise Reject(f"non-JSON numeric constant {value}")
+
+
 def check_full_record(path, number, record):
     where = f"{path}:{number}"
+
+    def bounded(obj, key, low, high):
+        value = obj.get(key)
+        if not is_int(value) or not low <= value <= high:
+            raise Reject(f"{where}: invalid {key!r}: expected integer {low}..{high}")
+
     for key in TOP_INT:
         if not is_int(record.get(key)):
             raise Reject(f"{where}: missing or non-integer {key!r}")
-    for key in TOP_LIST:
-        if not int_list(record.get(key)):
-            raise Reject(f"{where}: missing or malformed {key!r}")
+    for key in ("seq", "ctx", "pic", "req"):
+        bounded(record, key, 1, (1 << (64 if key == "seq" else 32)) - 1)
+    bounded(record, "target", 0, (1 << 32) - 1)
+    bounded(record, "poc", -(1 << 31), (1 << 31) - 1)
+    bounded(record, "total_curr", 0, 16)
+    for key in ("first", "last", "irap", "idr", "ltr_sps", "reorder"):
+        bounded(record, key, 0, 1)
+    if not isinstance(record.get("va_context"), str):
+        raise Reject(f"{where}: missing va_context")
     dpb = record.get("dpb")
-    if not isinstance(dpb, list):
-        raise Reject(f"{where}: missing dpb")
+    if not isinstance(dpb, list) or len(dpb) > 16:
+        raise Reject(f"{where}: missing or oversized dpb")
     for entry in dpb:
         if not isinstance(entry, dict) or not all(is_int(entry.get(k)) for k in DPB_INT):
-            raise Reject(f"{where}: malformed dpb entry {entry!r}")
+            raise Reject(f"{where}: malformed dpb entry")
+        if "src" in entry or "_line" in entry:
+            raise Reject(f"{where}: reserved checker field")
+        bounded(entry, "buf", -1, (1 << 32) - 1)
+        bounded(entry, "poc", -(1 << 31), (1 << 31) - 1)
+        for key in ("lt", "field"):
+            bounded(entry, key, 0, 1)
     if [e["i"] for e in dpb] != list(range(len(dpb))):
         raise Reject(f"{where}: dpb slots are not 0..n-1 in order")
+
+    def refs(value):
+        if (not int_list(value) or len(value) > 16 or
+                any(i < 0 or i >= len(dpb) for i in value)):
+            raise Reject(f"{where}: malformed or out-of-range reference list")
+
+    for key in TOP_LIST:
+        refs(record.get(key))
     slices = record.get("slices")
-    if not isinstance(slices, list):
-        raise Reject(f"{where}: missing slices")
-    for s in slices:
-        if (not isinstance(s, dict) or not all(is_int(s.get(k)) for k in SLICE_INT)
-                or s.get("type") not in ("B", "P", "I", "?")
-                or not int_list(s.get("l0")) or not int_list(s.get("l1"))):
-            raise Reject(f"{where}: malformed slice {s!r}")
-        if s["tmvp"] and not (is_int(s.get("col")) and is_int(s.get("col_l0"))):
-            raise Reject(f"{where}: TMVP slice without collocated reference")
-    if [s["i"] for s in slices] != list(range(len(slices))):
+    if not isinstance(slices, list) or len(slices) > 16:
+        raise Reject(f"{where}: missing or oversized slices")
+    for item in slices:
+        if (not isinstance(item, dict) or not all(is_int(item.get(k)) for k in SLICE_INT)
+                or item.get("type") not in ("B", "P", "I")):
+            raise Reject(f"{where}: malformed slice")
+        bounded(item, "nal", 0, 63)
+        bounded(item, "tmvp", 0, 1)
+        refs(item.get("l0")); refs(item.get("l1"))
+        if ((item["type"] == "I" and (item["l0"] or item["l1"])) or
+                (item["type"] == "P" and item["l1"])):
+            raise Reject(f"{where}: reference list disagrees with slice type")
+        if item["tmvp"]:
+            bounded(item, "col_l0", 0, 1)
+            collocated = item["l0"] if item["type"] == "P" or item["col_l0"] else item["l1"]
+            bounded(item, "col", 0, len(collocated) - 1)
+        elif "col" in item or "col_l0" in item:
+            raise Reject(f"{where}: inactive collocated reference")
+    if [item["i"] for item in slices] != list(range(len(slices))):
         raise Reject(f"{where}: slice indices are not 0..n-1 in order")
-    if "slices_omitted" in record and not is_int(record["slices_omitted"]):
-        raise Reject(f"{where}: malformed slices_omitted")
+    if "slices_omitted" in record:
+        bounded(record, "slices_omitted", 0, (1 << 32) - 1)
+        if record["slices_omitted"]:
+            raise Reject(f"{where}: omitted slices make comparison incomplete")
 
 
 # --- correlation -------------------------------------------------------------
@@ -153,29 +212,35 @@ def pictures_of(records, path):
     pictures = []
     wrote = {}          # CAPTURE buffer index -> (pic ordinal, poc)
     last_pic, last_req = 0, 0
+    closed = True
     for r in records:
+        where = f"{path}:{r['_line']}"
         if r["pic"] < last_pic or r["req"] != last_req + 1:
-            raise Reject(f"{path}:{r['_line']}: pic/req ordinals out of order "
-                         f"(pic {r['pic']} req {r['req']} after pic {last_pic} req {last_req})")
+            raise Reject(f"{where}: pic/req ordinals out of order")
         if r["pic"] > last_pic:
             if r["pic"] != last_pic + 1:
-                raise Reject(f"{path}:{r['_line']}: picture ordinal gap ({last_pic} -> {r['pic']})")
-            pictures.append({"pic": r["pic"], "requests": []})
+                raise Reject(f"{where}: picture ordinal gap ({last_pic} -> {r['pic']})")
+            if not closed or not r["first"]:
+                raise Reject(f"{where}: incomplete picture or missing first batch")
+            pictures.append({"pic": r["pic"], "poc": r["poc"], "target": r["target"], "requests": []})
+        elif closed or r["first"]:
+            raise Reject(f"{where}: duplicate first batch or request after last batch")
         last_pic, last_req = r["pic"], r["req"]
         pic = pictures[-1]
-        if "error" in r:
-            pic["requests"].append({"error": r["error"], "_line": r["_line"]})
-            continue
-        if "poc" in pic and pic["poc"] != r["poc"]:
-            raise Reject(f"{path}:{r['_line']}: picture {r['pic']} changes POC mid-picture")
-        pic["poc"] = r["poc"]
+        if pic["poc"] != r["poc"] or pic["target"] != r["target"]:
+            raise Reject(f"{where}: picture {r['pic']} changes POC/target mid-picture")
         resolved = []
-        for e in r["dpb"]:
-            src = wrote.get(e["buf"])
-            resolved.append(dict(e, src=list(src) if src else None))
+        for entry in r["dpb"]:
+            src = wrote.get(entry["buf"])
+            if src is None:
+                raise Reject(f"{where}: unresolved reference buffer {entry['buf']}")
+            resolved.append(dict(entry, src=list(src)))
         pic["requests"].append(dict(r, dpb=resolved))
-        if r["last"]:
+        closed = bool(r["last"])
+        if closed:
             wrote[r["target"]] = (r["pic"], r["poc"])
+    if not closed:
+        raise Reject(f"{path}: incomplete final picture (missing last batch)")
     return pictures
 
 
@@ -217,6 +282,9 @@ def diff_slice(path, a, b):
 
 def diff_unknown(path, a, b, known):
     for key in sorted((set(a) | set(b)) - known - {"_line"}):
+        if (key in a) != (key in b):
+            return {"field": f"{path}.{key}", "a": a.get(key), "b": b.get(key),
+                    "unknown_field": True, "note": "field present on only one side"}
         d = diff_value(f"{path}.{key}", a.get(key), b.get(key))
         if d:
             d["unknown_field"] = True
@@ -230,7 +298,7 @@ def diff_request(path, a, b):
             return {"field": f"{path}.error", "a": a.get("error"), "b": b.get("error"),
                     "note": "record content unavailable on one side"}
         return None
-    for key in ("first", "last", "irap", "idr", "ltr_sps", "reorder", "total_curr"):
+    for key in ("first", "last", "irap", "idr", "ltr_sps", "total_curr"):
         d = diff_value(f"{path}.{key}", a[key], b[key])
         if d:
             return d
@@ -250,12 +318,16 @@ def diff_request(path, a, b):
     return diff_unknown(path, a, b, KNOWN_TOP)
 
 
-def compare(a_records, b_records, a_path, b_path, ctx_a=None, ctx_b=None):
+def compare(a_records, b_records, a_path, b_path, ctx_a=None, ctx_b=None, expected_pictures=None):
     ctx_a, a_records = select_context(a_records, a_path, ctx_a)
     ctx_b, b_records = select_context(b_records, b_path, ctx_b)
     a_pics = pictures_of(a_records, a_path)
     b_pics = pictures_of(b_records, b_path)
-    result = {"equal": True, "context_a": ctx_a, "context_b": ctx_b,
+    if expected_pictures is not None:
+        if expected_pictures < 1 or len(a_pics) != expected_pictures or len(b_pics) != expected_pictures:
+            raise Reject("trace picture count does not match the independently expected count")
+    result = {"equal": True, "scope": "recorded reference fields only",
+              "extent": "expected picture count" if expected_pictures is not None else "captured prefix only", "context_a": ctx_a, "context_b": ctx_b,
               "pictures_a": len(a_pics), "pictures_b": len(b_pics), "pictures_compared": 0}
     for pa, pb in zip(a_pics, b_pics):
         result["pictures_compared"] += 1
@@ -284,7 +356,8 @@ def compare(a_records, b_records, a_path, b_path, ctx_a=None, ctx_b=None):
 def format_result(result):
     if result["equal"]:
         return (f"equal: {result['pictures_compared']} pictures "
-                f"(context A={result['context_a']}, B={result['context_b']})")
+                f"(context A={result['context_a']}, B={result['context_b']}; "
+                f"{result['extent']}; {result['scope']})")
     d = result["difference"]
     text = f"first difference at picture {d['pic']}"
     if d.get("poc_a") is not None:
@@ -414,7 +487,7 @@ generator.
 | `synthetic-poc-b.jsonl` | first difference: picture 2 `poc` |
 | `synthetic-slice-refs-b.jsonl` | first difference: picture 4 `req[0].slices[0].l0` |
 | `synthetic-short-b.jsonl` | first difference: trace B ends after picture 3 |
-| `synthetic-overflow-b.jsonl` | first difference: picture 4 `req[0].error` (content unavailable) |
+| `synthetic-overflow-b.jsonl` | rejected: unavailable record content |
 | `synthetic-unknown-field-b.jsonl` | first difference: picture 3 unknown field `future_field` |
 | `synthetic-truncated.jsonl` | rejected: truncated record |
 | `synthetic-missing-run.jsonl` | rejected: missing run identity |
@@ -457,7 +530,75 @@ def expect_difference(a, b, pic, field):
     return result
 
 
+def adversarial_tests():
+    base = synth("00000000000000aa", 3)
+    mutations = [
+        ("missing first", lambda r: r[-1].update(first=0), "missing first"),
+        ("missing last", lambda r: r[-1].update(last=0), "incomplete final"),
+        ("omitted slices", lambda r: r[-1].update(slices_omitted=2), "omitted slices"),
+        ("unresolved reference", lambda r: r[1]["dpb"][0].update(buf=99), "unresolved reference"),
+        ("bad slot", lambda r: r[1]["slices"][0].update(l0=[15]), "out-of-range"),
+        ("bad flag", lambda r: r[0].update(first=9), "invalid 'first'"),
+        ("zero picture", lambda r: r[0].update(pic=0), "invalid 'pic'"),
+        ("bad POC", lambda r: r[0].update(poc=1 << 31), "invalid 'poc'"),
+        ("forged source", lambda r: r[1]["dpb"][0].update(src=[1, 0]), "reserved checker"),
+        ("bad collocated", lambda r: r[1]["slices"][0].update(tmvp=1, col_l0=1, col=2), "invalid 'col'"),
+    ]
+    with tempfile.TemporaryDirectory() as directory:
+        path = pathlib.Path(directory) / "trace.jsonl"
+        for name, mutate, message in mutations:
+            records = copy.deepcopy(base)
+            mutate(records)
+            path.write_text(dumps(records))
+            expect_reject(path, message)
+        for text, message in [
+            (dumps(base).replace('"seq":1', '"seq":1,"seq":1', 1), "duplicate JSON key"),
+            (dumps(base).replace('"poc":0', '"poc":NaN', 1), "non-JSON"),
+            (dumps(base).replace('"poc":0', '"extra":"' + 'x' * 4096 + '","poc":0', 1), "byte bound"),
+        ]:
+            path.write_text(text)
+            expect_reject(path, message)
+        # A second batch cannot change its destination, reopen a completed
+        # picture, or advance to another picture before closing the first.
+        for change, message in [("target", "changes POC/target"),
+                                ("first", "duplicate first"),
+                                ("last", "incomplete picture")]:
+            records = copy.deepcopy(base)
+            records[1]["last"] = 0
+            second = dict(records[1], first=0, last=1, req=3, seq=3)
+            records.insert(2, second)
+            for i, row in enumerate(records): row.update(seq=i + 1, req=i + 1)
+            if change == "target": second["target"] += 1
+            elif change == "first": second["first"] = 1
+            else: second["last"] = 0
+            path.write_text(dumps(records))
+            expect_reject(path, message)
+        path.write_text(dumps(base[:3]))
+        rows = load(path)
+        assert compare(rows, rows, path, path)["extent"] == "captured prefix only"
+        try:
+            compare(rows, rows, path, path, expected_pictures=4)
+        except Reject:
+            pass
+        else:
+            raise AssertionError("two equally shortened traces claimed full coverage")
+        path.write_text(dumps(base))
+        rows = load(path)
+        other = copy.deepcopy(rows)
+        other[0]["reorder"] ^= 1
+        assert compare(rows, other, path, path, expected_pictures=4)["equal"]
+        other[0]["future_field"] = None
+        assert not compare(rows, other, path, path)["equal"]
+        records = copy.deepcopy(base)
+        records[1]["slices"][0].update(tmvp=1, col_l0=0, col=0)
+        path.write_text(dumps(records))
+        rows = load(path)
+        assert compare(rows, rows, path, path)["equal"]  # P slices implicitly use L0.
+    print("hevc-reftrace-check adversarial regressions: PASS (20 cases)")
+
+
 def self_test(binary):
+    adversarial_tests()
     generated = fixtures()
     for name, text in generated.items():
         on_disk = (FIXTURES / name).read_text(encoding="utf-8")
@@ -473,7 +614,7 @@ def self_test(binary):
     expect_difference(a, FIXTURES / "synthetic-slice-refs-b.jsonl", 4, "req[0].slices[0].l0")
     r = expect_difference(a, FIXTURES / "synthetic-short-b.jsonl", 4, "missing")
     assert "ends after picture 3" in r["difference"]["note"]
-    r = expect_difference(a, FIXTURES / "synthetic-overflow-b.jsonl", 4, "req[0].error")
+    expect_reject(FIXTURES / "synthetic-overflow-b.jsonl", "unavailable record content")
     r = expect_difference(a, FIXTURES / "synthetic-unknown-field-b.jsonl", 3, "req[0].future_field")
     assert r["difference"].get("unknown_field")
     expect_reject(FIXTURES / "synthetic-truncated.jsonl", "truncated")
@@ -550,6 +691,16 @@ def main(argv):
         args = argv[1:]
         as_json = "--json" in args
         args = [x for x in args if x != "--json"]
+        expected_pictures = None
+        if "--expected-pictures" in args:
+            i = args.index("--expected-pictures")
+            try:
+                expected_pictures = int(args[i + 1])
+            except (IndexError, ValueError):
+                raise Reject("--expected-pictures needs a positive integer")
+            if expected_pictures < 1:
+                raise Reject("--expected-pictures needs a positive integer")
+            del args[i:i + 2]
         ctx_a = ctx_b = None
         if "--context" in args:
             i = args.index("--context")
@@ -560,7 +711,7 @@ def main(argv):
             del args[i:i + 3]
         if len(args) != 2:
             raise Reject("compare needs exactly two trace files")
-        result = compare(load(args[0]), load(args[1]), args[0], args[1], ctx_a, ctx_b)
+        result = compare(load(args[0]), load(args[1]), args[0], args[1], ctx_a, ctx_b, expected_pictures)
         print(json.dumps(result, indent=1) if as_json else format_result(result))
         return 0 if result["equal"] else 1
     print(__doc__, file=sys.stderr)
