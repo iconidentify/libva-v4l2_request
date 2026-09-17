@@ -300,6 +300,13 @@ if conf.get('HAVE_V4L2_PIX_FMT_P010') == 1 and (conf.get('HAVE_V4L2_CTRL_H264') 
   test('surface-probe', surface_probe, timeout: 10)
 endif
 
+early_export_backing = executable('early-export-backing', 'early-export-backing.c', driver_sources,
+  c_args: ['-UNDEBUG'],
+  include_directories: [root_inc, include_directories('../src')],
+  dependencies: [libva_dep, libdrm_dep, threads_dep],
+  link_args: ['-Wl,--wrap=ioctl'])
+test('early-export-backing', early_export_backing, timeout: 10)
+
 python3 = find_program('python3')
 # Multi-process schedules: N worker processes of the stress harness
 # behind a start barrier, aggregated and deadline-checked by the

@@ -449,6 +449,7 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 			      uint32_t pixelformat)
 {
 	struct v4l2r_surface_backing *backing;
+	bool saw_enomem = false;
 
 	backing = calloc(1, sizeof(*backing));
 	if (!backing)
@@ -594,8 +595,16 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 			.memory = V4L2_MEMORY_MMAP,
 			.format = allocation,
 		};
-		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0)
+		/* Keep coherent MMAP. This backing is exported and the
+		 * allocating queue is closed; the live decoder imports the
+		 * dma-buf. Cache hints on this throwaway fd do not establish
+		 * a CPU/importer sync contract. Snapshot errno before close
+		 * so CMA exhaustion stays ALLOCATION_FAILED. */
+		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0) {
+			if (errno == ENOMEM)
+				saw_enomem = true;
 			goto next;
+		}
 
 		buffer.type = format.type;
 		buffer.index = buffers.index;
@@ -645,7 +654,8 @@ next:
 	}
 
 	free(backing);
-	return VA_STATUS_ERROR_OPERATION_FAILED;
+	return saw_enomem ? VA_STATUS_ERROR_ALLOCATION_FAILED :
+			    VA_STATUS_ERROR_OPERATION_FAILED;
 }
 
 /* Backing for a bare (unbound) surface, sized like the surface itself. */

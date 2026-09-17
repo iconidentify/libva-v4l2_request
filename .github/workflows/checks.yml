@@ -167,7 +167,8 @@ jobs:
           done
           for present in decode-error picture-render-errors support-matrix ci-aggregate-fixtures ci-workflow-audit \
                           fuzz-va-api fuzz-budgets fuzz-provenance \
-                          fuzz-timeout-replay fuzz-timeout-campaign fuzz-replay-mismatch; do
+                          fuzz-timeout-replay fuzz-timeout-campaign fuzz-replay-mismatch \
+                          early-export-backing; do
             printf '%s\n' "$tests" | grep -q "^$present\$" || {
               echo "ERROR: expected core test '$present' missing" >&2
               exit 1
