@@ -8,11 +8,13 @@ status database. Check each ticket's current labels, comments and native depende
 ## Next contributor wave
 
 Use [the contributor entry point](CONTRIBUTOR_START.md) for bounded offline tasks,
-public inputs and the live ready queues. It routes remaining real H.264 parser/admission work and a coherent HEVC
-reference-content client adapter. The reference traces, VP9 model, field-feasibility
+public inputs and the live ready queues. It routes actual H.264 parser/admission work,
+a coherent HEVC reference-content client adapter and the real concurrent VA-API
+worker [driver #94](https://github.com/iconidentify/libva-v4l2_request/issues/94). The reference traces, VP9 model, field-feasibility
 research and reference-memory audit are completed inputs. Allocation retry/startup
-has an isolated candidate; capture-DMA coherence and runtime qualification remain
-explicit gates. Check live claims before starting.
+has a combined isolated candidate with [selected runtime qualification](https://github.com/iconidentify/omarchy-m1-video/pull/91)
+and original-driver restoration. Shipped integration, capture-DMA coherence and
+parent hardware/release outcomes remain explicit gates. Check live claims before starting.
 The current GitHub roadmap records the accepted resource/qualification evidence,
 active claims and remaining hardware gates; historical r11 figures below are a
 starting snapshot. Research acceptance never promises a new hardware capability.
@@ -88,6 +90,7 @@ Parent: [iconidentify/libva-v4l2_request#10](https://github.com/iconidentify/lib
 - [iconidentify/libva-v4l2_request#23](https://github.com/iconidentify/libva-v4l2_request/issues/23) — Audit public VA-API state transitions and reject invalid lifetimes consistently (P0, M1).
 - [iconidentify/libva-v4l2_request#35](https://github.com/iconidentify/libva-v4l2_request/issues/35) — Make request and buffer cleanup correct at every injected failure point (P0, M1).
 - [iconidentify/libva-v4l2_request#36](https://github.com/iconidentify/libva-v4l2_request/issues/36) — Stress concurrent API calls, context teardown and frame access (P1, M1).
+- [iconidentify/libva-v4l2_request#94](https://github.com/iconidentify/libva-v4l2_request/issues/94) — Implement the real concurrent VA-API worker with offline scheduling/output checks; child of #36, hardware qualification separate (P1, M1).
 - [iconidentify/libva-v4l2_request#41](https://github.com/iconidentify/libva-v4l2_request/issues/41) — Prove bounded memory, dma-buf and file-descriptor use under playback churn (P1, M3).
 - [iconidentify/libva-v4l2_request#19](https://github.com/iconidentify/libva-v4l2_request/issues/19) — Add actionable decoder diagnostics without leaking media or user data (P1, M1).
 - [iconidentify/libva-v4l2_request#24](https://github.com/iconidentify/libva-v4l2_request/issues/24) — Establish reproducible throughput, latency, CPU and memory benchmarks (P1, M3).
