@@ -93,21 +93,6 @@ if not have_p010
   codec_report += 'p010 capture format: not available (V4L2_PIX_FMT_P010 missing, first in Linux 6.0)'
 endif
 
-# MMAP cache hints / non-coherent CREATE_BUFS flags arrived in Linux 5.13.
-# Ubuntu 20.04's 5.4 UAPI (uapi-minimal CI) has neither the capability bit
-# nor struct v4l2_create_buffers.flags.
-have_mmap_cache_hints = cc.compiles('''#include <linux/videodev2.h>
-int probe(void) {
-  struct v4l2_create_buffers b = {0};
-  b.flags = V4L2_MEMORY_FLAG_NON_COHERENT;
-  return (int)(b.flags | V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS);
-}
-''', name: 'kernel provides mmap cache hints / non-coherent CREATE_BUFS flags')
-conf.set10('HAVE_V4L2_MEMORY_FLAG_NON_COHERENT', have_mmap_cache_hints)
-if not have_mmap_cache_hints
-  codec_report += 'mmap cache hints: not available (V4L2_MEMORY_FLAG_NON_COHERENT missing, first in Linux 5.13)'
-endif
-
 conf.set10('HAVE_HEVC_DECODE_PARAMS_NUM_DELTA_POCS',
            cc.has_member('struct v4l2_ctrl_hevc_decode_params',
                          'num_delta_pocs_of_ref_rps_idx',

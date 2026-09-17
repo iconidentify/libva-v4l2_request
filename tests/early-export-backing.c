@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* CREATE_BUFS flag/capability matrix and ENOMEM classification for standalone
- * early-export backing. Fake ioctl only; does not open a decoder. */
+/* CREATE_BUFS ENOMEM classification for standalone early-export backing.
+ * Fake ioctl only; does not open a decoder. Coherent MMAP is the default. */
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -12,16 +12,13 @@
 #include "v4l2_request.h"
 
 enum {
-    MODE_HINTS,
-    MODE_NO_HINTS,
+    MODE_OK,
     MODE_ENOMEM,
     MODE_EINVAL,
 };
 
 static int mode;
-static unsigned query_count;
 static unsigned alloc_count;
-static uint32_t last_flags;
 
 int __wrap_ioctl(int fd, unsigned long request, ...)
 {
@@ -62,19 +59,10 @@ int __wrap_ioctl(int fd, unsigned long request, ...)
     if (request == VIDIOC_CREATE_BUFS) {
         struct v4l2_create_buffers *buffers = arg;
 
-        if (buffers->count == 0) {
-            query_count++;
-#if HAVE_V4L2_MEMORY_FLAG_NON_COHERENT
-            buffers->capabilities = (mode == MODE_HINTS) ?
-                V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS : 0;
-#endif
-            return 0;
-        }
-
+        /* No count=0 capability probe: early-export stays coherent mmap. */
+        assert(buffers->count == 1);
+        assert(buffers->memory == V4L2_MEMORY_MMAP);
         alloc_count++;
-#if HAVE_V4L2_MEMORY_FLAG_NON_COHERENT
-        last_flags = buffers->flags;
-#endif
         if (mode == MODE_ENOMEM) {
             errno = ENOMEM;
             return -1;
@@ -113,9 +101,7 @@ static void run(int test_mode, VAStatus expected)
     VAStatus status;
 
     mode = test_mode;
-    query_count = 0;
     alloc_count = 0;
-    last_flags = 0xdeadbeef;
     snprintf(drv.decoders[0].video_path, sizeof(drv.decoders[0].video_path),
              "/dev/null");
     drv.decoders[0].pixelformats[0] = v4l2_fourcc('T', 'E', 'S', 'T');
@@ -139,16 +125,7 @@ int main(void)
 
     assert(!setrlimit(RLIMIT_CORE, &core));
 
-#if HAVE_V4L2_MEMORY_FLAG_NON_COHERENT
-    run(MODE_HINTS, VA_STATUS_SUCCESS);
-    assert(query_count == 1);
-    assert(last_flags & V4L2_MEMORY_FLAG_NON_COHERENT);
-
-    run(MODE_NO_HINTS, VA_STATUS_SUCCESS);
-    assert(query_count == 1);
-    assert(!(last_flags & V4L2_MEMORY_FLAG_NON_COHERENT));
-#endif
-
+    run(MODE_OK, VA_STATUS_SUCCESS);
     run(MODE_ENOMEM, VA_STATUS_ERROR_ALLOCATION_FAILED);
     run(MODE_EINVAL, VA_STATUS_ERROR_OPERATION_FAILED);
     return 0;

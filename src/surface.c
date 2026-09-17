@@ -595,25 +595,11 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 			.memory = V4L2_MEMORY_MMAP,
 			.format = allocation,
 		};
-		/* Query CAPTURE capabilities before allocating: mmap cache
-		 * hints must be requested on the CREATE_BUFS that allocates. */
-#if HAVE_V4L2_MEMORY_FLAG_NON_COHERENT
-		{
-			struct v4l2_create_buffers probe = {
-				.count = 0,
-				.memory = V4L2_MEMORY_MMAP,
-				.format = allocation,
-			};
-
-			if (ioctl(fd, VIDIOC_CREATE_BUFS, &probe) < 0) {
-				if (errno == ENOMEM)
-					saw_enomem = true;
-				goto next;
-			}
-			if (probe.capabilities & V4L2_BUF_CAP_SUPPORTS_MMAP_CACHE_HINTS)
-				buffers.flags = V4L2_MEMORY_FLAG_NON_COHERENT;
-		}
-#endif
+		/* Keep coherent MMAP. This backing is exported and the
+		 * allocating queue is closed; the live decoder imports the
+		 * dma-buf. Cache hints on this throwaway fd do not establish
+		 * a CPU/importer sync contract. Snapshot errno before close
+		 * so CMA exhaustion stays ALLOCATION_FAILED. */
 		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0) {
 			if (errno == ENOMEM)
 				saw_enomem = true;

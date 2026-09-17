@@ -4,11 +4,10 @@
 
 These compile the actual driver sources with a fake V4L2 device. They need Meson, Ninja,
 GCC/Clang, libva and libdrm development headers, but no decoder, root access or kernel module.
-`early-export-backing` intercepts standalone `VIDIOC_CREATE_BUFS`: mmap cache hints advertised
-→ `V4L2_MEMORY_FLAG_NON_COHERENT`, absent → flags clear, `-ENOMEM` →
-`VA_STATUS_ERROR_ALLOCATION_FAILED`, `-EINVAL` → `VA_STATUS_ERROR_OPERATION_FAILED`. It does
-not claim hardware frames. The flag assertions compile out when the UAPI is older than Linux
-5.13; the ENOMEM/EINVAL classification still runs.
+`early-export-backing` intercepts standalone `VIDIOC_CREATE_BUFS` on coherent
+`V4L2_MEMORY_MMAP` (`count = 1`, no cache-hint probe): success, `-ENOMEM` →
+`VA_STATUS_ERROR_ALLOCATION_FAILED`, `-EINVAL` → `VA_STATUS_ERROR_OPERATION_FAILED`.
+It does not claim hardware frames.
 
 ```sh
 meson setup build-test -Db_sanitize=address,undefined
