@@ -138,6 +138,10 @@ uint32_t v4l2r_diag_context_serial(void);
 size_t v4l2r_diag_redact(char *dst, size_t size, const char *src,
 			 bool ascii_only);
 
+/* The 16-hex-digit run identifier shared by every diagnostic record of
+ * this process (initialising diagnostics if needed); out holds 17 bytes. */
+void v4l2r_diag_run_id(char out[17]);
+
 /* Test hook: reset state and override the output mode, sink and clock. */
 struct v4l2r_diag_options {
 	enum v4l2r_diag_mode mode;
@@ -145,6 +149,42 @@ struct v4l2r_diag_options {
 	uint64_t (*clock_ns)(void);
 };
 void v4l2r_diag_configure(const struct v4l2r_diag_options *options);
+
+/* --- opt-in HEVC reference-control trace (hevc_trace.c); issue #84 ---
+ *
+ * One JSON line per request the HEVC backend actually queued, carrying the
+ * reference controls as submitted (DPB slots, RPS lists, slice reference
+ * indices). Enabled only by LIBVA_V4L2_HEVC_REFTRACE=stderr|<file>; when
+ * disabled it costs one relaxed atomic load plus ordinal bookkeeping and writes nothing.
+ * It never changes what is submitted. See docs/HEVC_REFTRACE.md. */
+#define V4L2R_HEVC_TRACE_SCHEMA	"libva-v4l2request.hevc-refs/1"
+
+/* Test hook: reset to the environment (NULL) or force a state and sink. */
+struct v4l2r_hevc_trace_options {
+	bool enable;
+	FILE *sink;			/* NULL = stderr */
+};
+void v4l2r_hevc_trace_configure(const struct v4l2r_hevc_trace_options *options);
+bool v4l2r_hevc_trace_enabled(void);
+
+#if HAVE_V4L2_CTRL_HEVC
+struct v4l2r_hevc_trace_request {
+	const struct v4l2_ctrl_hevc_decode_params *decode_params;
+	const struct v4l2_ctrl_hevc_slice_params *slices;	/* may be NULL */
+	unsigned int num_slices;
+	uint32_t picture;		/* decode-order picture ordinal, from 1 */
+	uint32_t request;		/* request ordinal in this context, from 1 */
+	bool first_slice;
+	bool last_slice;
+	int target_index;		/* CAPTURE buffer index written */
+	bool ltr_sps;			/* SPS long_term_ref_pics_present_flag */
+	bool reorder;			/* AVD decode-order remap applied */
+	uint32_t num_pic_total_curr;
+};
+/* Record one queued request. Call only after the request was accepted. */
+void v4l2r_hevc_trace_request(const struct v4l2r_context *ctx,
+			      const struct v4l2r_hevc_trace_request *req);
+#endif
 
 /* Wait for events on one fd: 0, -ETIMEDOUT, -EPIPE on an error or hangup,
  * -ENODEV on an invalid fd, -EIO without the requested event, or -errno. */

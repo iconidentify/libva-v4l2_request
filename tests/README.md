@@ -59,7 +59,19 @@ H.264 reference cases check the `reference` category. They also check that reuse
 IDs keep distinct `ctx` serials, path/URL redaction and size limits, per-category rate
 limiting, and report a bounded synthetic logging overhead. `diag-schema` validates emitted
 JSON against `tests/fixtures/diagnostics/schema.json`, rejects malformed fixture records,
-and fails if the category lists in the code, fixture and documentation differ. There are
+and fails if the category lists in the code, fixture and documentation differ.
+Eight `hevc-reftrace-*` cases cover the opt-in HEVC reference-control trace in
+[docs/HEVC_REFTRACE.md](../docs/HEVC_REFTRACE.md) (issue #84): synthetic IDR/P/B
+sequences are submitted through the HEVC backend to an in-memory device that captures
+every `VIDIOC_S_EXT_CTRLS` payload, once with the trace off and once on; the payloads and
+VA statuses must be byte-identical, and every record must match the captured decode and
+slice parameters (DPB slots, RPS lists, reference indices) in AVD, generic and
+LTR-capable-SPS contexts, including zero-long-term pictures under such an SPS, a real
+long-term reference, mid-picture slice-batch flushes, the 16-slice record bound, a rejected
+submission (no record) and the environment contract (off by default, no path echoed).
+`hevc-reftrace-check` runs the offline differential checker's self-test against the
+synthetic fixtures in `tests/fixtures/hevc-reftrace/` and, when HEVC is built, against
+the writer's real output. There are
 40 sanitizer Meson cases plus the `support-matrix`, `conformance-result`,
 `diag-schema`, `hwguard`, `rps-e-research` and HEVC concurrency research checks.
 The count-overflow case injects the boundary into codec state rather than

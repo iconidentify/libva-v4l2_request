@@ -87,6 +87,13 @@ output frames 26–31 on the VA path (opt-in env trace). Kernel kprobes remain
 out of scope without `needs:kernel-approval`. Kernel sufficiency stays unproven
 until those request controls are compared.
 
+The VA-path half of that experiment now has its instrument:
+`LIBVA_V4L2_HEVC_REFTRACE` records the submitted DPB, RPS lists and slice
+reference indices per request, and `tests/hevc-reftrace-check.py` compares two
+such traces ([HEVC_REFTRACE.md](HEVC_REFTRACE.md), #84). No hardware capture
+has been taken with it yet; the association procedure is documented there and
+the conclusions stay with #42.
+
 ## H2 contract (do not violate)
 
 - Keep RPS_B at 300/300 on VA-API and direct V4L2.

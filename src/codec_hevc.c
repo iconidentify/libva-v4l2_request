@@ -89,6 +89,12 @@ struct hevc_context {
 
 	bool first_slice;
 	unsigned int num_slices;
+
+	/* Decode-order ordinals of queued pictures and requests, for the
+	 * opt-in reference trace (hevc_trace.c). Counting is unconditional
+	 * so a trace enabled mid-stream still numbers from the context start. */
+	uint32_t trace_pictures;
+	uint32_t trace_requests;
 };
 
 static unsigned int ceil_log2(unsigned int value)
@@ -979,11 +985,42 @@ static VAStatus hevc_submit(struct v4l2r_context *ctx, bool last_slice)
 		};
 	}
 
-	if (codec->decode_mode == V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED)
-		return v4l2r_decode(ctx, controls, count,
-				    codec->first_slice, last_slice);
+	bool first = codec->decode_mode == V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED ?
+		     codec->first_slice : true;
+	bool last = codec->decode_mode == V4L2_STATELESS_HEVC_DECODE_MODE_SLICE_BASED ?
+		    last_slice : true;
+	VAStatus status = v4l2r_decode(ctx, controls, count, first, last);
 
-	return v4l2r_decode(ctx, controls, count, true, true);
+	if (status != VA_STATUS_SUCCESS)
+		return status;
+
+	/* The request is queued: record the reference controls exactly as
+	 * submitted (issue #84). This reads codec state only and cannot
+	 * change the status or the controls. */
+	codec->trace_requests++;
+	if (first)
+		codec->trace_pictures++;
+	if (v4l2r_hevc_trace_enabled()) {
+		unsigned int nb = codec->num_slice_params;
+
+		if (nb > codec->max_slice_params)
+			nb = codec->max_slice_params;
+		v4l2r_hevc_trace_request(ctx, &(struct v4l2r_hevc_trace_request) {
+			.decode_params = &codec->decode_params,
+			.slices = codec->max_slice_params ? codec->slice_params : NULL,
+			.num_slices = codec->max_slice_params ? nb : 0,
+			.picture = codec->trace_pictures,
+			.request = codec->trace_requests,
+			.first_slice = first,
+			.last_slice = last,
+			.target_index = ctx->pic.target ? ctx->pic.target->capture_index : -1,
+			.ltr_sps = codec->va_pic.slice_parsing_fields.bits.long_term_ref_pics_present_flag,
+			.reorder = ctx->is_avd &&
+				!codec->va_pic.slice_parsing_fields.bits.long_term_ref_pics_present_flag,
+			.num_pic_total_curr = codec->num_pic_total_curr,
+		});
+	}
+	return VA_STATUS_SUCCESS;
 }
 
 static VAStatus hevc_process_slice(struct v4l2r_context *ctx,

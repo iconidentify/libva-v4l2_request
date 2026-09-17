@@ -12,6 +12,7 @@ driver_sources = files(
   'codec_mpeg2.c',
   'codec_h264.c',
   'codec_hevc.c',
+  'hevc_trace.c',
   'codec_vp8.c',
   'codec_vp9.c',
   'codec_av1.c',
