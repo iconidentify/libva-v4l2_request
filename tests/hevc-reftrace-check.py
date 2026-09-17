@@ -180,8 +180,13 @@ def check_full_record(path, number, record):
             raise Reject(f"{where}: reference list disagrees with slice type")
         if item["tmvp"]:
             bounded(item, "col_l0", 0, 1)
-            collocated = item["l0"] if item["type"] == "P" or item["col_l0"] else item["l1"]
-            bounded(item, "col", 0, len(collocated) - 1)
+            # I-slice headers can retain temporal MVP enablement, but never
+            # select a collocated picture. Preserve their raw u8 metadata.
+            if item["type"] == "I":
+                bounded(item, "col", 0, 255)
+            else:
+                collocated = item["l0"] if item["type"] == "P" or item["col_l0"] else item["l1"]
+                bounded(item, "col", 0, len(collocated) - 1)
         elif "col" in item or "col_l0" in item:
             raise Reject(f"{where}: inactive collocated reference")
     if [item["i"] for item in slices] != list(range(len(slices))):
@@ -594,7 +599,18 @@ def adversarial_tests():
         path.write_text(dumps(records))
         rows = load(path)
         assert compare(rows, rows, path, path)["equal"]  # P slices implicitly use L0.
-    print("hevc-reftrace-check adversarial regressions: PASS (20 cases)")
+        records = copy.deepcopy(base)
+        records[0]["slices"][0].update(tmvp=1, col_l0=0, col=255)
+        path.write_text(dumps(records))
+        rows = load(path)
+        assert compare(rows, rows, path, path)["equal"]  # I has no active collocated reference.
+        other = copy.deepcopy(rows)
+        other[0]["slices"][0]["col"] = 0
+        assert not compare(rows, other, path, path)["equal"]  # Retain raw differences.
+        records[0]["slices"][0]["col"] = 256
+        path.write_text(dumps(records))
+        expect_reject(path, "invalid 'col'")
+    print("hevc-reftrace-check adversarial regressions: PASS (23 cases)")
 
 
 def self_test(binary):

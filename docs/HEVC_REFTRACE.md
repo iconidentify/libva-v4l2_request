@@ -51,7 +51,7 @@ slice-batch requests produces one record per request with the same `pic`.
 | `total_curr` | `NumPicTotalCurr` derived for the slice headers. |
 | `dpb[]` | The `V4L2_CID_STATELESS_HEVC_DECODE_PARAMS` DPB in submitted slot order: `i` slot, `buf` the CAPTURE buffer index named by the entry's timestamp (`-1` if none), `poc`, `lt` long-term flag, `field` field-pic flag. |
 | `st_before`, `st_after`, `lt_curr` | `poc_st_curr_before`, `poc_st_curr_after` and `poc_lt_curr`, as DPB slot indices. |
-| `slices[]` | Each `V4L2_CID_STATELESS_HEVC_SLICE_PARAMS` element in the request: `i`, `type` (`I`/`P`/`B`), `nal` unit type, `l0`/`l1` reference lists as DPB slot indices, `tmvp`, and when `tmvp` is 1 `col_l0` and `col` (collocated list and index). At most 16 slices are listed; `slices_omitted` counts the rest. A decoder without the slice-parameter control produces an empty list. |
+| `slices[]` | Each `V4L2_CID_STATELESS_HEVC_SLICE_PARAMS` element in the request: `i`, `type` (`I`/`P`/`B`), `nal` unit type, `l0`/`l1` reference lists as DPB slot indices, `tmvp`, and when `tmvp` is 1 `col_l0` and `col` (collocated list and index). I-slices can retain `tmvp=1` but do not select a collocated picture; their raw `col` byte is preserved/compared without resolving an active reference. P-slices implicitly use L0. At most 16 slices are listed; `slices_omitted` counts the rest. A decoder without the slice-parameter control produces an empty list. |
 | `error` | Only on a record that could not be formatted within its bound (`record-overflow`); the identity fields are still present. |
 
 A DPB slot is identified by `buf`, and the picture that wrote that buffer is
@@ -133,7 +133,10 @@ work, and no stream is treated specially.
 Before integration, seven synthetic invalid/incomplete traces were reproduced as
 false equality and picture ordinal zero crashed the checker. Regression coverage
 now includes those cases, duplicate keys, unknown-null fields, malformed ranges,
-batch ownership, expected capture extent and implicit P-slice collocated L0.
+batch ownership, expected capture extent, implicit P-slice collocated L0 and
+unused I-slice collocated metadata (including a differing raw value and rejection
+outside the unsigned-byte range). Real RPS_B/E captures exposed the I-slice case;
+the submitted decoder controls and raw captures are unchanged.
 A FIFO destination also reproduced a blocked client, and `/dev/full` reproduced
 silent write failure; both have offline regressions with unchanged submitted
 control bytes and successful decode statuses. Contributor work received separate
