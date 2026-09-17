@@ -5,6 +5,15 @@ The initial plan contains **54 leaf tickets in eight workstreams**, plus the roa
 shared workflow issues, across both repositories. This document is an index, not a second
 status database. Check each ticket's current labels, comments and native dependencies.
 
+## Next contributor wave
+
+Use [the contributor entry point](CONTRIBUTOR_START.md) for bounded offline tasks,
+public inputs and the live ready queues. It includes client fixes, HEVC reference
+tracing, a VP9 state validator and an H.264 field-feasibility investigation.
+The current GitHub roadmap records the accepted resource/qualification evidence,
+active claims and remaining hardware gates; historical r11 figures below are a
+starting snapshot. Research acceptance never promises a new hardware capability.
+
 ## Agent entry point
 
 Read [the claim and execution workflow](AGENT_WORKFLOW.md) before editing. Its GitHub copy

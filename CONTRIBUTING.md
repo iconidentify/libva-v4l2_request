@@ -5,6 +5,13 @@ applicable AGENTS.md files and [agent workflow](docs/AGENT_WORKFLOW.md) before s
 The [live workflow](https://github.com/iconidentify/libva-v4l2_request/issues/8) controls claims and completion; this guide does not replace it.
 Suspected vulnerabilities follow [SECURITY.md](SECURITY.md), not the public bug form.
 
+## Find a bounded contribution
+
+Start with [the contributor entry point](docs/CONTRIBUTOR_START.md) for offline
+codec and AVD work, required skills, live ready queues and a copyable agent prompt.
+Apple hardware is not required for these offline tasks. Each child has its own
+acceptance criteria; hardware qualification remains in its parent.
+
 ## Choose the owning repository
 
 | Change or report | Repository |
