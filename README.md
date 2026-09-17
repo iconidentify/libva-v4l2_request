@@ -30,6 +30,9 @@ read the [claim and execution workflow](docs/AGENT_WORKFLOW.md) before taking a 
 
 ## Contributing and reporting
 
+**Next contributor wave:** [choose an offline codec or AVD task](docs/CONTRIBUTOR_START.md).
+Humans and coding agents can contribute without owning an Apple Silicon test machine.
+
 Start with [CONTRIBUTING.md](CONTRIBUTING.md) for repository ownership, offline checks
 and PR evidence. Use [SECURITY.md](SECURITY.md) for suspected vulnerabilities, and
 [maintenance and handoff](docs/MAINTENANCE.md) for triage, review and release decisions.

@@ -11,6 +11,39 @@ This is the shared execution protocol for `iconidentify/libva-v4l2_request` and 
 3. Read all comments, assignees, linked PRs and blockers. An unresolved prerequisite, required hardware or kernel authorization must be satisfied before the dependent action. A completed research ticket only unblocks implementation when its approved design establishes feasibility; it does not mean the feature exists.
 4. Tickets marked `status:backlog` can be promoted when their prerequisites and resources are satisfied. Record that decision. Do not skip or remove dependency links merely to make a ticket claimable.
 
+
+## Prepare work for distribution
+
+A ready leaf must name its owning layer/files, public input revisions, a concrete
+artifact, acceptance checks, required resources and the next action. Mark completed
+prerequisites as completed in the body while retaining native dependency links.
+A closed research dependency does not establish feasibility: name any remaining
+contract or evidence gate. Do not use a generic "needs hardware" label as the only
+explanation of why an offline deliverable cannot start.
+
+Split an independently useful offline deliverable into a linked child when the
+parent requires unavailable hardware or authorization. The child must be able to
+finish against its own tests; do not quietly remove the parent's original gates.
+Use native parent/sub-issue links and, where it gates the parent's implementation,
+a blocked-by link from parent to child. Never make that child depend on completion
+of its parent. Ready describes the bounded child, not the entire codec feature.
+
+Contributors on non-Apple hosts may do source analysis and offline tests. Linux
+is required for the V4L2 C build; no-device Python/source tasks can use any suitable
+host. Do not run an installer or load a module to make an offline task claimable.
+
+Status follows active work as well as blockers: keep a confirmed, unexpired
+contributor claim visible as in-progress when a permitted scope is underway, with
+unfinished gates stated separately. Do not distribute that scope to another agent.
+A passing PR or merged partial contribution does not complete its parent. Mark
+acceptance checkboxes only for the evidence actually delivered.
+
+At each merge/handoff, reconcile direct dependents, native relationships, the live
+roadmap and the canonical workflow issue. When this shared workflow changes,
+update the driver guide and driver issue #8 together, and keep the companion
+entry point consistent. Historical snapshots
+stay labeled; the live queue remains authoritative.
+
 ## Claim without colliding
 
 GitHub assignment alone is insufficient: several agents may share the same account. Use a unique session ID and preserve claims in comments.

@@ -1,0 +1,44 @@
+name: Propose a bounded contribution
+description: Define an independently reviewable task for a human or coding agent.
+body:
+- type: markdown
+  attributes:
+    value: 'Read CONTRIBUTING.md and the live shared workflow first. Link an existing parent instead of duplicating a claimed task. This form grants no hardware/system permission and sets no readiness label. Suspected vulnerabilities follow [SECURITY.md](https://github.com/iconidentify/libva-v4l2_request/blob/avd-fixes/SECURITY.md).'
+- type: textarea
+  id: outcome
+  attributes:
+    label: Outcome, parent and owning layer
+    description: Name one deliverable, its parent issue, repository/files and what remains outside this task.
+  validations:
+    required: true
+- type: dropdown
+  id: execution
+  attributes:
+    label: Required execution scope
+    options:
+    - Offline only; no decoder or privileged access
+    - Hardware qualification; named device and exclusive window required
+    - Kernel/system experiment; separate explicit authorization required
+  validations:
+    required: true
+- type: textarea
+  id: inputs
+  attributes:
+    label: Public inputs and dependencies
+    description: Give exact source/fixture revisions and acquisition terms. Separate completed prerequisites, open blockers, hypotheses and missing hardware/permissions. Do not include private media or logs.
+  validations:
+    required: true
+- type: textarea
+  id: acceptance
+  attributes:
+    label: Acceptance and first action
+    description: State the first reproducible step, resulting artifact, positive/negative tests and completion boundary. A model is not hardware evidence; a child does not close its parent.
+  validations:
+    required: true
+- type: textarea
+  id: coordination
+  attributes:
+    label: Ownership and review
+    description: Identify overlapping claims/files and requested reviewer expertise. Follow the unique-session claim protocol before work. Describe AI assistance and preserve imported credits; do not invent a reviewer commitment.
+  validations:
+    required: true

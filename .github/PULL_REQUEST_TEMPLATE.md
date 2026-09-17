@@ -10,6 +10,8 @@ Do not put security-sensitive details in this PR; follow SECURITY.md first. -->
 Refs <!-- full ticket URL; use Fixes only when all leaf acceptance criteria can be met -->
 Companion/dependency PRs: <!-- links, or none -->
 Claim/session: <!-- comment link and unique session ID -->
+Execution scope: <!-- offline | hardware qualification | separately authorized system/kernel work -->
+Parent outcome: <!-- if this is a child, name the parent gates that remain open -->
 
 ## Acceptance evidence
 
@@ -21,7 +23,10 @@ Claim/session: <!-- comment link and unique session ID -->
 
 <!-- Source/base and candidate commits; tool/dependency versions; exact commands and results.
 For hardware, give device/kernel/loaded-module provenance, driver/package hashes,
-guard/journal summary and final idle state. Otherwise say no hardware used.
+original corpus lock/verification, full redacted command/environment, guard run ID,
+fixed journal boundary and final idle state. Link each summary to its actual run.
+Label unavailable provenance unknown; never recreate it as historical evidence.
+Otherwise say no hardware used and identify synthetic/model-only results.
 Preserve full denominators, exact passing vectors, failures and partial/aborted runs.
 Distinguish hardware output, fallback, expected rejection, wrong output and untested cases.
 List tests not run and why. Do not paste private media, URLs, credentials or unrelated logs. -->
