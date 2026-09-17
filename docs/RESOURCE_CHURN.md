@@ -7,12 +7,16 @@ VA display remains alive. It does not prove that a kernel releases video buffers
 that firmware remains healthy, or that RSS has a universal platform-independent
 limit.
 
-The [2026-09-16 M1 evidence](resource-churn-2026-09-16/README.md) records passing
-normal and early-export 1,000-cycle campaigns with flat measured resources. Its
-one-hour soak was interrupted by another decoder client after approximately
-10.3 minutes and **does not satisfy the soak gate**. The raw failed run and
-calibration failures are retained alongside the passing evidence; #41 remains
-open pending an uninterrupted campaign and final integration.
+The [2026-09-17 M1 acceptance](resource-churn-2026-09-17/README.md) records fresh
+normal and early-export 1,000-cycle campaigns and an uninterrupted
+3600.168-second early-export soak (16,298 measured lifecycles),
+followed by intentional-client-exit/recovery checks and exact selected-build codec
+pass-set preservation. Completed acceptance campaigns satisfy the unchanged resource bounds;
+the report retains actual ranges rather than assuming every curve is flat.
+The [earlier evidence](resource-churn-2026-09-16/README.md) preserves both aborted
+soaks and calibration failures as failed/incomplete runs. This qualifies the fixed
+M1 workload, not browser rendering, concurrent API use, other resolutions or boot
+stability; the installed driver package is unchanged.
 
 ## Offline ownership model
 
