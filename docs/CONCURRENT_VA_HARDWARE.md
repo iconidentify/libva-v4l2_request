@@ -16,7 +16,7 @@ This leaf does not run the campaign or grant a decoder lease.
 1. 1/2/4 threads, one shared VA display
 2. 1/2/4 processes, one worker each
 3. Mid-run teardown of stream 0 while others continue (kept frame)
-4. Client-level invalid API after teardown (`avcodec_send_packet` on a freed context)
+4. Client-level invalid API on a live unopened context (`avcodec_send_packet`); never send on a freed context
 
 Stop on first new kernel fault, wedge, foreign `/dev/video0` holder or software fallback. Preserve partial logs. Exclusive `hwguard.py` lease. Restore idle decoder.
 

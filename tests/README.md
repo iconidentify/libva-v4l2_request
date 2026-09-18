@@ -104,11 +104,14 @@ EndPicture; this does not establish that a media file can trigger the same API s
 CI also runs `frame-check.sh` in software to test resolution changes and truncated input;
 hardware tests are separate.
 
-`concurrent-va-worker` is a real FFmpeg/libva client (not the model
+`concurrent-va-worker` is a real FFmpeg client (not the model
 `concurrent-stress` worker). Hosted CI runs `concurrent-va-run.py --self-test`
-in software: generated public lavfi H.264 clips, exact per-worker MD5s, process
-kill and missing-input negatives. Hardware mode requires `AV_PIX_FMT_VAAPI` and
-is documented in [../docs/CONCURRENT_VA_HARDWARE.md](../docs/CONCURRENT_VA_HARDWARE.md);
+in **software only**: generated public lavfi H.264 clips, independent per-clip
+oracles, invalid-API rejection, teardown of a kept decoded frame, process
+kill of the worker, and `--processes`/`--deadline`. The self-test never
+invokes `vaapi` or opens a decoder device. Hardware mode requires
+`AV_PIX_FMT_VAAPI` plus `hwguard.py` as documented in
+[../docs/CONCURRENT_VA_HARDWARE.md](../docs/CONCURRENT_VA_HARDWARE.md);
 it is not a meson hardware pass.
 
 Three resource-churn cases run 1,000 normal, early-export and held-derived-image
