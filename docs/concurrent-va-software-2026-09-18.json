@@ -1,0 +1,191 @@
+{
+  "schema": "libva-v4l2_request.concurrent-va-offline-evidence/1",
+  "date": "2026-09-18",
+  "review": "maintainer self-review",
+  "original_heads": [
+    "a1b447bac6e0b5e4ae6a0d961bf804a338d196c0",
+    "e9a7410b4b88ae32a661416841bb734c10c49398"
+  ],
+  "base": "5d7e6d363445d8a4216bc23c8e1512bd43976653",
+  "identity": {
+    "worker_sha256": "9269a5cfecf49fe238eff82d36a985885ecdf4a56df69c1207b67236cc64210b",
+    "manifest_sha256": "bfce916de7b4124eb168e0f36b15c633efd545e82456abb269d62b36a76816be",
+    "mode": "software",
+    "source_commit": null,
+    "helper_sources": {
+      "concurrent-va-run.py": "22622821c776a9baba31271b243b2c6e969b596a5c023e165be45c202a3bb6db",
+      "concurrent-va-worker.c": "6c70ba04ee70af44a345018c4f513f1a91edfa45332e272b5200c1262b7e2419",
+      "frame-check.c": "1b5110c2d5e97e489c46838baa925881da84a8cf677dee70a2f8e589ac5c2e0c",
+      "concurrent-process.py": "71be4e45718da0ffa4864fb310b1aafac870c8b37fc7206e64ef79f2d1458955"
+    },
+    "repetitions": 10,
+    "deadline_per_group": 30
+  },
+  "inputs": {
+    "schema": "libva-v4l2_request.concurrent-va-inputs/1",
+    "clips": [
+      {
+        "name": "h264",
+        "path": "h264.mkv",
+        "sha256": "a8f27b44db536aa42a63afd2502fe3396c744ef4fa412b084d54cd4f233eb6d5",
+        "format": "yuv420p",
+        "frames": 8,
+        "width": 128,
+        "height": 96,
+        "full": "afcae645eadb08d951a0baa24195b6ee",
+        "prefix": "7f8c3f235f944921ceab4ee867e62168",
+        "held": "85082903cdb13684b7d3677071fa7164",
+        "oracle_raw_sha256": "5c002683103a29986e5d35d5e14e7143337f8ac919a32ce6216c6d0adc19e483",
+        "generation": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=128x96:rate=8,format=yuv420p",
+          "-frames:v",
+          "8",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "ultrafast",
+          "-bf",
+          "2",
+          "-g",
+          "4",
+          "-pix_fmt",
+          "+yuv420p",
+          "<generated-inputs>/h264.mkv"
+        ]
+      },
+      {
+        "name": "hevc",
+        "path": "hevc.mkv",
+        "sha256": "a8bb59591eaa6196f64a1588124848d3c52cdff7364c2d947457ddb5b54ee0bc",
+        "format": "yuv420p",
+        "frames": 8,
+        "width": 160,
+        "height": 96,
+        "full": "ddd7042178a0958d6219ee92ee9ce113",
+        "prefix": "415fe5bb5bcee4f7a09da210a15f5a10",
+        "held": "9b17204b134df32732644e27a0b311e4",
+        "oracle_raw_sha256": "6ba8e71c58b029a7ed41f66a320664b4ca5a8f1e3d80c8167832977cdf2a5afd",
+        "generation": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=160x96:rate=8,format=yuv420p",
+          "-frames:v",
+          "8",
+          "-c:v",
+          "libx265",
+          "-preset",
+          "ultrafast",
+          "-x265-params",
+          "log-level=error:pools=2",
+          "-g",
+          "4",
+          "-pix_fmt",
+          "+yuv420p",
+          "<generated-inputs>/hevc.mkv"
+        ]
+      },
+      {
+        "name": "vp9-8",
+        "path": "vp9-8.mkv",
+        "sha256": "b67f086d6ced80b3b0ca8c0ab12ce0a470df7c742885817e0608736ba66bd1d1",
+        "format": "yuv420p",
+        "frames": 8,
+        "width": 192,
+        "height": 96,
+        "full": "a188528f9742adfb56d0822c34ad7239",
+        "prefix": "96f313df4e510f7206ac99fab8311b11",
+        "held": "91d6df0c53b6ec8f308fd1224c83370f",
+        "oracle_raw_sha256": "62b82e37810f6b3a0f3847fed95bf84288ef066a77769f07452a7745c605d1ca",
+        "generation": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-f",
+          "lavfi",
+          "-i",
+          "testsrc2=size=192x96:rate=8,format=yuv420p",
+          "-frames:v",
+          "8",
+          "-c:v",
+          "libvpx-vp9",
+          "-cpu-used",
+          "8",
+          "-deadline",
+          "good",
+          "-lag-in-frames",
+          "0",
+          "-g",
+          "4",
+          "-pix_fmt",
+          "+yuv420p",
+          "<generated-inputs>/vp9-8.mkv"
+        ]
+      },
+      {
+        "name": "vp9-10",
+        "path": "vp9-10.mkv",
+        "sha256": "8af93425aff929fc8585bc31e0d1b3a78e009cec53207b0512fba3e33d2a673d",
+        "format": "yuv420p10le",
+        "frames": 8,
+        "width": 640,
+        "height": 360,
+        "full": "bca5b15547b8c8dab915c1d5ed61d81e",
+        "prefix": "b66f40da2e49ce712e80f88a44a80a8e",
+        "held": "5ea06c606885678b608fd8670e786c8a",
+        "oracle_raw_sha256": "0b1a4f7f21ce1adb81b2296b8255245bc18afd2c7f2fcc354f15272df241fc6e",
+        "generation": [
+          "ffmpeg",
+          "-nostdin",
+          "-v",
+          "error",
+          "-i",
+          "<reviewed-source>/tests/fixtures/resource/vp9-10.webm",
+          "-frames:v",
+          "8",
+          "-c",
+          "copy",
+          "<generated-inputs>/vp9-10.mkv"
+        ]
+      }
+    ],
+    "ffmpeg_sha256": "739d9146279e96ae62518f9b5550a771e1a9286349704beb30f5bde5bb94b147"
+  },
+  "result": {
+    "groups": 180,
+    "decoded_frames": 2560,
+    "mode": "software",
+    "hardware_executed": false
+  },
+  "baseline": {
+    "meson_passed": 195,
+    "meson_failed": 0,
+    "sanitizers": [
+      "address",
+      "undefined"
+    ],
+    "existing_tsan": "passed",
+    "frame_check": "passed resize/crop/truncation",
+    "shared_contexts": "168 software frames passed",
+    "clang_strict_syntax": "passed",
+    "oracle_mutations_rejected": 10
+  },
+  "limits": [
+    "No decoder device opened",
+    "No real driver overlap or VAImage/export lifetime proof",
+    "No VA error injection/recovery proof",
+    "No hardware or support promotion"
+  ]
+}

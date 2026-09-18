@@ -182,28 +182,21 @@ evidence log):
   threaded, teardown and failure schedules run with **zero reports** in the
   driver or the harness on this host.
 
-## Guarded-hardware runbook (not run offline)
+## Guarded hardware handoff (not run offline)
 
-The hardware repetitions of these schedules need an exclusive `tests/hwguard.py`
-lease on a qualified device and are not claimed by the offline work. The
-offline-equivalent steps for a device owner:
+The real FFmpeg client now exists in `tests/concurrent-va-worker.c`; use the
+[finite current runbook](CONCURRENT_VA_HARDWARE.md) for exact source/helper/driver/
+corpus identities, ten repetitions of the declared real-client schedules and
+whole-boot health checks. The model worker in this document still links a fake
+V4L2 device and cannot become a hardware test through `LIBVA_DRIVERS_PATH`.
 
-1. Build an unsanitized driver (`meson setup build && meson compile -C build`).
-2. Take the hardware guard lease with a finite deadline and a journal
-   since-stamp; close all other video clients first.
-3. Run the process schedule against the real driver with
-   `LIBVA_DRIVERS_PATH=<build>/src`. **Note: this still needs a VA-API
-   process worker to be implemented first** — the offline worker links the
-   driver directly in-process and cannot be switched to hardware by setting
-   `LIBVA_DRIVERS_PATH`; a worker that decodes through a real VA display
-   (frame-check-style) is a separate follow-up item before this campaign.
-   Record per-worker hashes, deadlines, guard logs and kernel journal deltas.
-4. Ten repetitions of each declared schedule, comparing the exact passing sets
-   and per-stream hashes against the software references; any kernel fault,
-   stuck task or abandoned decoder holder fails the criterion and stops the
-   campaign.
-5. Historical HEVC corruption findings are reported to their dedicated ticket
-   (#39/#43), never hidden inside this one.
+The new client's lifetime schedules differ from the model's forced overlap and
+invalid-VA-context actor. Preserve those distinctions: software/model results do
+not establish real-driver contention, and the FFmpeg EOF rejection is not a VA
+API error injection. #36 retains hardware output/health and remaining coverage
+criteria. Stop on the first fault, stuck task, foreign holder or output mismatch;
+retain historical HEVC corruption under its dedicated defect #42. Do not narrow
+the journal window to bypass faults or reset a decoder to complete a campaign.
 
 ## Limits
 
@@ -245,3 +238,13 @@ sampler was found to reap its owned group leader before the final group signal.
 It now observes exit without reaping, reserves the group ID through the final
 signal, and tests successful/failed leaders plus a surviving descendant. No
 hardware evidence or codec support count is changed by these offline fixes.
+
+## Real client handoff (#94 to #36)
+
+`tests/concurrent-va-worker.c` and `tests/concurrent-va-run.py` now provide the
+real FFmpeg software/VA client and exact mixed-codec oracle described in
+[CONCURRENT_VA_HARDWARE.md](CONCURRENT_VA_HARDWARE.md). The software matrix and
+negative fixtures execute actual client scheduling, retained-frame readback and
+owned-process cleanup. They do not execute libva/AVD or replace the model's
+forced-overlap/TSan evidence above. Hardware output, kernel health, real overlap
+and remaining image/export lifetime criteria stay in parent #36.
