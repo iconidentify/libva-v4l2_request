@@ -8,16 +8,22 @@ status database. Check each ticket's current labels, comments and native depende
 ## Next contributor wave
 
 Use [the contributor entry point](CONTRIBUTOR_START.md) for bounded offline tasks,
-public inputs and the live ready queues. It routes actual H.264 parser/admission work,
-a coherent HEVC reference-content client adapter and the real concurrent VA-API
-worker [driver #94](https://github.com/iconidentify/libva-v4l2_request/issues/94). The reference traces, VP9 model, field-feasibility
-research and reference-memory audit are completed inputs. Allocation retry/startup
-has a combined isolated candidate with [selected runtime qualification](https://github.com/iconidentify/omarchy-m1-video/pull/91)
-and original-driver restoration. Shipped integration, capture-DMA coherence and
-parent hardware/release outcomes remain explicit gates. Check live claims before starting.
-The current GitHub roadmap records the accepted resource/qualification evidence,
-active claims and remaining hardware gates; historical r11 figures below are a
-starting snapshot. Research acceptance never promises a new hardware capability.
+public inputs and live claims. Actual HEVC observation is split into
+[VA API #95](https://github.com/iconidentify/omarchy-m1-video/issues/95) and
+[direct-V4L2 GStreamer API #96](https://github.com/iconidentify/omarchy-m1-video/issues/96),
+with separate experimental implementation files. Parent #82 retains exporter,
+bounded-copy and campaign integration gates. H.264 #79 retains actual admission
+work beyond merged NAL/parameter coverage; new PR97 is under review at this snapshot.
+
+The real concurrent worker and selected M1 qualification are now accepted through
+[driver PR96/97](https://github.com/iconidentify/libva-v4l2_request/pull/97): 180 groups,
+2,560 exact frame hashes and 200 retained frames, with healthy idle guard completion.
+[Evidence and limits](https://github.com/iconidentify/libva-v4l2_request/blob/avd-fixes/docs/concurrency-2026-09-18/README.md)
+keep model overlap, real teardown, strict suites, boot and support claims distinct.
+Allocator/startup candidate [selected runtime qualification](https://github.com/iconidentify/omarchy-m1-video/pull/91)
+is also complete with the original module restored; shipping remains separate.
+No support-count gain follows from these checks. The live GitHub roadmap controls
+ownership and status; historical r11 figures below are a starting snapshot.
 
 ## Agent entry point
 
