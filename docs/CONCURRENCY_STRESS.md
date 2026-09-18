@@ -245,3 +245,13 @@ sampler was found to reap its owned group leader before the final group signal.
 It now observes exit without reaping, reserves the group ID through the final
 signal, and tests successful/failed leaders plus a surviving descendant. No
 hardware evidence or codec support count is changed by these offline fixes.
+
+## Real client handoff (#94 to #36)
+
+`tests/concurrent-va-worker.c` and `tests/concurrent-va-run.py` now provide the
+real FFmpeg software/VA client and exact mixed-codec oracle described in
+[CONCURRENT_VA_HARDWARE.md](CONCURRENT_VA_HARDWARE.md). The software matrix and
+negative fixtures execute actual client scheduling, retained-frame readback and
+owned-process cleanup. They do not execute libva/AVD or replace the model's
+forced-overlap/TSan evidence above. Hardware output, kernel health, real overlap
+and remaining image/export lifetime criteria stay in parent #36.

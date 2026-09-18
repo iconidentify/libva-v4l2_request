@@ -355,6 +355,8 @@ if find_program('ffmpeg', required: false).found() and dependency('libavformat',
   test('concurrent-va-software', python3,
        args: [files('concurrent-va-run.py'), '--self-test', concurrent_va_worker],
        timeout: 120)
+  test('concurrent-va-negative', python3,
+       args: [files('concurrent-va-test.py'), concurrent_va_worker], timeout: 30)
 endif
 test('rps-e-research', python3, args: files('rps-e-research.py'), timeout: 15)
 test('hevc-concurrent', python3, args: [files('hevc-concurrent.py'), '--self-test'], timeout: 15)

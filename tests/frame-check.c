@@ -18,7 +18,6 @@ struct check {
     enum AVPixelFormat format;
     struct AVMD5 *md5;
     struct SwsContext *sws;
-    AVFrame *last;
 };
 
 static enum AVPixelFormat vaapi_format(AVCodecContext *ctx,
@@ -128,12 +127,6 @@ static int decode(struct check *check, AVCodecContext *decoder, AVPacket *packet
         return AVERROR(ENOMEM);
     while ((ret = avcodec_receive_frame(decoder, frame)) >= 0) {
         ret = hash_frame(check, frame);
-        if (ret >= 0) {
-            if (!check->last)
-                check->last = av_frame_clone(frame);
-            else if (av_frame_ref(check->last, frame) < 0)
-                ret = AVERROR(ENOMEM);
-        }
         av_frame_unref(frame);
         if (ret < 0)
             break;
@@ -230,7 +223,6 @@ done:
     if (ret < 0)
         fprintf(stderr, "Decode failed: %s\n", av_err2str(ret));
     av_packet_free(&packet);
-    av_frame_free(&check.last);
     avcodec_free_context(&decoder);
     avformat_close_input(&input);
     av_buffer_unref(&device);

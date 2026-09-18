@@ -104,15 +104,23 @@ EndPicture; this does not establish that a media file can trigger the same API s
 CI also runs `frame-check.sh` in software to test resolution changes and truncated input;
 hardware tests are separate.
 
-`concurrent-va-worker` is a real FFmpeg client (not the model
-`concurrent-stress` worker). Hosted CI runs `concurrent-va-run.py --self-test`
-in **software only**: generated public lavfi H.264 clips, independent per-clip
-oracles, invalid-API rejection, teardown of a kept decoded frame, process
-kill of the worker, and `--processes`/`--deadline`. The self-test never
-invokes `vaapi` or opens a decoder device. Hardware mode requires
-`AV_PIX_FMT_VAAPI` plus `hwguard.py` as documented in
-[../docs/CONCURRENT_VA_HARDWARE.md](../docs/CONCURRENT_VA_HARDWARE.md);
-it is not a meson hardware pass.
+`concurrent-va-worker` is the real FFmpeg client for later VA qualification.
+Its software self-test executes 18 groups: 1/2/4 threads or processes, normal,
+midpoint teardown and a live-decoder EOF rejection. H.264/HEVC/VP9 8/10-bit
+outputs are checked against independent FFmpeg-CLI raw-pixel references,
+including every stream's exact count/digest and retained frame across teardown.
+The negative suite rejects oracle mutations and exercises actual owned process
+launch/exit/deadline/output/cancellation cleanup, escaped stdout, malformed or
+short inputs, and the worker's start barrier. Self-tests open no decoder device;
+an explicit unguarded-VA refusal check exits before device initialization.
+
+Threads share one device and preserve other live decoders during victim
+teardown; their API calls are paused until that teardown completes. This is not
+proof of real in-driver overlap, derived-image/export lifetime or VA error
+recovery. Existing model overlap/TSan tests remain unchanged. Explicit hardware
+mode requires the portable guard and rejects software frames. See the finite
+[hardware runbook](../docs/CONCURRENT_VA_HARDWARE.md); hardware acceptance and
+remaining lifetime criteria stay in #36.
 
 Three resource-churn cases run 1,000 normal, early-export and held-derived-image
 lifecycles in one initialized fake driver. At cycles 100, 500 and 1,000, and
