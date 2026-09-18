@@ -1,0 +1,45 @@
+{
+  "source_commit": "c77e7b566f7baf9c7a2aad797e62c9aa578d9687",
+  "worker_sha256": "9057b5b077a06ae19d8fc93f625484c81796af96a7f4b97e06ca05452f8c2b84",
+  "driver_sha256": "b59dc22c5b7269ec754159f8423ddbf131327b2b750686bd62f4c5eb0de01c6d",
+  "input_manifest_sha256": "d5edf5481939680f62de72d3bc45ef2d5db704d51910a671c5333a58b6cd3afa",
+  "original_module_sha256": "e50540e1d0fc48c7e0bf9b21ff028758bdb35f94aa7070af00de88e61e5c70e9",
+  "loaded_module_note_hex": "040000001400000003000000474e550085742eb3b2b9f0692370842ae4f3dc439825dc47",
+  "boot_id": "bb406b03-cd02-4793-bfab-fffdcfb1f615",
+  "kernel": "7.1.13-3-1-ARCH",
+  "machine": "apple,j293 / apple,t8103 / aarch64",
+  "build_options": [
+    "buildtype=debugoptimized",
+    "b_sanitize=none"
+  ],
+  "compiler": "cc (GCC) 16.1.1 20260430",
+  "ffmpeg": "ffmpeg version n9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "libva": "1.24.0",
+  "helpers": {
+    "tests/concurrent-va-worker.c": "6c70ba04ee70af44a345018c4f513f1a91edfa45332e272b5200c1262b7e2419",
+    "tests/concurrent-va-run.py": "22622821c776a9baba31271b243b2c6e969b596a5c023e165be45c202a3bb6db",
+    "tests/frame-check.c": "1b5110c2d5e97e489c46838baa925881da84a8cf677dee70a2f8e589ac5c2e0c",
+    "tests/concurrent-process.py": "71be4e45718da0ffa4864fb310b1aafac870c8b37fc7206e64ef79f2d1458955",
+    "tests/hwguard.py": "45d65351b33b13dbdd2145b3d37a83bf48c27cc08f1df08c5f37b196d7643d60"
+  },
+  "limits": {
+    "groups": 180,
+    "repetitions": 10,
+    "group_deadline_s": 30,
+    "cleanup_deadline_s": 5,
+    "outer_deadline_s": 6600,
+    "expected_selected_frames": 2560
+  },
+  "preflight": {
+    "time_utc": "2026-09-18T00:34:47.429573+00:00",
+    "boot_id": "bb406b03-cd02-4793-bfab-fffdcfb1f615",
+    "state": {
+      "module_loaded": true,
+      "video_node": "/dev/video0",
+      "media_node": "/dev/media0",
+      "holders": [],
+      "stuck_tasks": [],
+      "faults": []
+    }
+  }
+}
