@@ -598,8 +598,9 @@ static VAStatus backing_alloc(struct v4l2r_driver *drv,
 		/* Keep coherent MMAP. This backing is exported and the
 		 * allocating queue is closed; the live decoder imports the
 		 * dma-buf. Cache hints on this throwaway fd do not establish
-		 * a CPU/importer sync contract. Snapshot errno before close
-		 * so CMA exhaustion stays ALLOCATION_FAILED. */
+		 * a CPU/importer sync contract (docs/EARLY_EXPORT_COHERENCE.md).
+		 * Snapshot errno before close so CMA exhaustion stays
+		 * ALLOCATION_FAILED. */
 		if (ioctl(fd, VIDIOC_CREATE_BUFS, &buffers) < 0) {
 			if (errno == ENOMEM)
 				saw_enomem = true;
