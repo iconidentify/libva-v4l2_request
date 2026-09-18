@@ -373,3 +373,7 @@ test('concurrent-process-cleanup', python3, args: files('concurrent-process-test
 test('concurrent-tsan-probe', python3, args: [files('concurrent-tsan.py'), '--self-test'], timeout: 30)
 test('fuzz-campaign-runner', python3, args: [files('fuzz-campaign.py'), '--self-test'], timeout: 30)
 test('h264-syntax-probe', python3, args: files('h264-syntax-probe-test.py'), timeout: 30)
+
+# Published M1 evidence is verified offline; this never opens a decoder.
+test('concurrency-hardware-evidence', python3,
+     args: [files('../docs/concurrency-2026-09-18/verify.py'), '--self-test'], timeout: 30)
