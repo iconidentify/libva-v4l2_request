@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
-/* Real FFmpeg/libva concurrent worker. Software hashes are the offline oracle.
- * Hardware mode requires AV_PIX_FMT_VAAPI and never counts software fallback.
- * This is not the model concurrent-stress worker. */
+/* Real FFmpeg concurrent worker. Offline oracle is software hashes only.
+ * vaapi mode opens a device and is not a software self-test; use hwguard. */
 #define main single_stream_main
 #include "frame-check.c"
 #undef main
@@ -19,6 +18,19 @@ struct job {
     int ret;
     AVFrame *kept;
 };
+
+static void job_cleanup(struct job *job, AVFormatContext **input,
+                        AVCodecContext **decoder, AVPacket **packet,
+                        struct check *check)
+{
+    av_packet_free(packet);
+    av_frame_free(&check->last);
+    av_freep(&check->md5);
+    sws_freeContext(check->sws);
+    check->sws = NULL;
+    avcodec_free_context(decoder);
+    avformat_close_input(input);
+}
 
 static void *run_job(void *arg)
 {
@@ -38,6 +50,7 @@ static void *run_job(void *arg)
     check.format = av_get_pix_fmt(job->pix_fmt);
     if (check.format == AV_PIX_FMT_NONE) {
         job->ret = AVERROR(EINVAL);
+        av_packet_free(&packet);
         return NULL;
     }
     check.md5 = av_md5_alloc();
@@ -70,6 +83,19 @@ static void *run_job(void *arg)
     }
     if ((ret = avcodec_open2(decoder, codec, NULL)) < 0)
         goto done;
+    if (job->invalid) {
+        /* Live, unopened context: invalid API, not a use-after-free. */
+        AVCodecContext *closed = avcodec_alloc_context3(codec);
+        if (!closed) {
+            ret = AVERROR(ENOMEM);
+            goto done;
+        }
+        ret = avcodec_send_packet(closed, packet);
+        avcodec_free_context(&closed);
+        if (ret >= 0)
+            ret = AVERROR(EINVAL);
+        goto done;
+    }
     while ((ret = av_read_frame(input, packet)) >= 0) {
         if (packet->stream_index == stream)
             ret = decode(&check, decoder, packet);
@@ -84,49 +110,37 @@ static void *run_job(void *arg)
     if (!job->teardown_after && (ret = decode(&check, decoder, NULL)) < 0)
         goto done;
     if (job->teardown_after) {
-        AVFrame *hold = av_frame_alloc();
-        if (!hold) {
+        if (!check.last) {
+            ret = AVERROR(EINVAL);
+            goto done;
+        }
+        job->kept = av_frame_clone(check.last);
+        if (!job->kept) {
             ret = AVERROR(ENOMEM);
             goto done;
         }
-        /* Keep a decoded frame across this context's teardown. */
-        job->kept = hold;
-    }
-    if (job->invalid && decoder) {
-        /* Client-level invalid: send after the codec was closed. */
         avcodec_free_context(&decoder);
-        ret = 0;
+        /* Kept pixels must still be readable after this context is gone. */
+        if ((ret = hash_frame(&check, job->kept)) < 0)
+            goto done;
     }
     if (check.md5)
         av_md5_final(check.md5, job->md5);
     job->frames = check.frames;
+    ret = 0;
 done:
-    av_packet_free(&packet);
-    av_freep(&check.md5);
-    sws_freeContext(check.sws);
-    if (!job->invalid)
-        avcodec_free_context(&decoder);
-    avformat_close_input(&input);
+    job_cleanup(job, &input, &decoder, &packet, &check);
     job->ret = ret;
     return NULL;
 }
 
-static int open_device(AVBufferRef **device, int hardware)
-{
-    if (!hardware) {
-        *device = NULL;
-        return 0;
-    }
-    return av_hwdevice_ctx_create(device, AV_HWDEVICE_TYPE_VAAPI, NULL, NULL, 0);
-}
-
 int main(int argc, char **argv)
 {
-    int hardware, i, n = 0, teardown = 0, invalid = 0, threads = 1;
+    int hardware, i, n = 0, teardown = 0, invalid = 0, threads = 1, started = 0;
     int arg = 1;
     AVBufferRef *device = NULL;
-    pthread_t *tids;
-    struct job *jobs;
+    pthread_t *tids = NULL;
+    struct job *jobs = NULL;
     int ret;
 
     av_log_set_level(AV_LOG_ERROR);
@@ -159,41 +173,56 @@ int main(int argc, char **argv)
     if ((argc - arg) < 2 || (argc - arg) % 2)
         return 2;
     n = (argc - arg) / 2;
-    if (threads < 1 || threads > 4 || n < 1 || n > 4)
+    if (threads < 1 || threads > 4 || n < 1 || n > 4 || threads != n)
         return 2;
-    if ((ret = open_device(&device, hardware)) < 0) {
-        fprintf(stderr, "vaapi device unavailable: %s\n", av_err2str(ret));
-        return hardware ? 77 : 1;
+    if (hardware) {
+        ret = av_hwdevice_ctx_create(&device, AV_HWDEVICE_TYPE_VAAPI, NULL, NULL, 0);
+        if (ret < 0) {
+            fprintf(stderr, "vaapi device unavailable: %s\n", av_err2str(ret));
+            return 77;
+        }
     }
     jobs = av_calloc(n, sizeof(*jobs));
     tids = av_calloc(n, sizeof(*tids));
-    if (!jobs || !tids)
-        return 1;
+    if (!jobs || !tids) {
+        ret = 1;
+        goto out;
+    }
     for (i = 0; i < n; i++) {
         jobs[i].path = argv[arg + i * 2];
         jobs[i].pix_fmt = argv[arg + i * 2 + 1];
         jobs[i].id = i;
         jobs[i].hardware = hardware;
         jobs[i].device = device;
-        jobs[i].teardown_after = (teardown && i == 0) ? 2 : 0;
+        jobs[i].teardown_after = (teardown && i == 0) ? 1 : 0;
         jobs[i].invalid = invalid && i == 0;
     }
     if (n == 1) {
         run_job(&jobs[0]);
     } else {
-        for (i = 0; i < n; i++)
-            if (pthread_create(&tids[i], NULL, run_job, &jobs[i]))
-                return 1;
+        for (i = 0; i < n; i++) {
+            if (pthread_create(&tids[i], NULL, run_job, &jobs[i])) {
+                ret = 1;
+                while (started--)
+                    pthread_join(tids[started], NULL);
+                goto out;
+            }
+            started++;
+        }
         for (i = 0; i < n; i++)
             pthread_join(tids[i], NULL);
     }
     ret = 0;
     for (i = 0; i < n; i++) {
-        if (jobs[i].ret && !(invalid && i == 0 && jobs[i].ret == 0)) {
-            if (jobs[i].ret)
+        if (invalid && i == 0) {
+            if (jobs[i].ret == 0) {
+                fprintf(stderr, "worker %d invalid API succeeded\n", i);
                 ret = 1;
-        }
-        if (jobs[i].ret && !invalid) {
+            } else {
+                fprintf(stderr, "invalid-api-rejected: %s\n", av_err2str(jobs[i].ret));
+                ret = 1;
+            }
+        } else if (jobs[i].ret) {
             fprintf(stderr, "worker %d failed: %s\n", i, av_err2str(jobs[i].ret));
             ret = 1;
         }
@@ -201,8 +230,11 @@ int main(int argc, char **argv)
         for (int b = 0; b < 16; b++)
             printf("%02x", jobs[i].md5[b]);
         putchar('\n');
+        if (jobs[i].kept)
+            printf("worker %d kept=%dx%d\n", i, jobs[i].kept->width, jobs[i].kept->height);
         av_frame_free(&jobs[i].kept);
     }
+out:
     av_buffer_unref(&device);
     av_free(jobs);
     av_free(tids);

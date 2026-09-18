@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Software oracle and process runner for the real VA worker. No model hashes."""
+"""Software oracle and process runner for the real VA worker. Never opens VA."""
 from __future__ import annotations
 
 import argparse
-import hashlib
 import os
 import re
 import signal
@@ -14,7 +13,8 @@ import tempfile
 import time
 from pathlib import Path
 
-WORKER_LINE = re.compile(r"^worker (\d+) frames=(\d+) MD5=([0-9a-f]{32})$")
+WORKER_LINE = re.compile(r"^worker (\d+) frames=(\d+) MD5=([0-9a-f]{32})$", re.M)
+KEPT_LINE = re.compile(r"^worker (\d+) kept=(\d+)x(\d+)$", re.M)
 
 
 def generate_clip(path: Path, seed: int, frames: int = 4):
@@ -37,17 +37,24 @@ def parse_workers(text: str):
     return out
 
 
-def run_worker(binary, mode, clips, extra=None, timeout=60):
-    args = [str(binary), mode]
+def run_worker(binary, clips, extra=None, timeout=60):
+    args = [str(binary), "software"]
     if extra:
         args.extend(extra)
     for clip in clips:
         args.extend([str(clip), "yuv420p"])
-    result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-    return result
+    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
 
 
-def self_test(binary: Path):
+def expect_ok(result, label):
+    if result.returncode != 0:
+        raise RuntimeError(label + " failed: " + result.stderr + result.stdout)
+    return parse_workers(result.stdout)
+
+
+def self_test(binary: Path, processes: int, deadline: float):
+    if processes < 1 or processes > 4:
+        raise SystemExit("invalid --processes")
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         clips = []
@@ -55,58 +62,84 @@ def self_test(binary: Path):
             p = tmp / f"c{i}.mp4"
             generate_clip(p, seed=1000 + i)
             clips.append(p)
-        one = run_worker(binary, "software", clips[:1])
-        if one.returncode != 0:
-            raise RuntimeError("software single-stream failed: " + one.stderr)
-        workers = parse_workers(one.stdout)
-        if len(workers) != 1 or workers[0][1] < 1:
-            raise RuntimeError("missing worker digest: " + one.stdout)
-        expected = workers[0][2]
-        two = run_worker(binary, "software", clips, extra=["--threads", "2"])
-        if two.returncode != 0:
-            raise RuntimeError("software two-stream failed: " + two.stderr)
-        got = parse_workers(two.stdout)
-        if len(got) != 2 or got[0][2] != expected:
-            raise RuntimeError("stream association mismatch")
-        # Negative: corrupt digest comparison
-        if expected == "0" * 32:
-            raise RuntimeError("uninitialized digest")
-        # Cancellation: kill a child
-        proc = subprocess.Popen(["sleep", "30"])
-        time.sleep(0.05)
-        if proc.poll() is None:
-            proc.send_signal(signal.SIGKILL)
-            proc.wait(timeout=5)
-            if proc.returncode == 0:
-                raise RuntimeError("killed child reported success")
-        # Launch failure
-        bad = subprocess.run([str(binary), "software", str(tmp / "missing.mp4"), "yuv420p"],
-                             capture_output=True, text=True, timeout=10)
-        if bad.returncode == 0:
+        oracle = [expect_ok(run_worker(binary, [clip]), "oracle " + str(i))[0]
+                  for i, clip in enumerate(clips)]
+        two = expect_ok(run_worker(binary, clips, extra=["--threads", "2"]), "two-stream")
+        if len(two) != 2:
+            raise RuntimeError("expected two workers: " + str(two))
+        for i in range(2):
+            if two[i][1] != oracle[i][1] or two[i][2] != oracle[i][2]:
+                raise RuntimeError("worker %d digest/count mismatch" % i)
+        if two[0][2] == two[1][2]:
+            raise RuntimeError("distinct clips produced identical digests")
+        flipped = two[0][2][-1] + two[0][2][:-1]
+        if flipped == two[0][2] or flipped == oracle[0][2]:
+            raise RuntimeError("digest mutation collapsed")
+        # --invalid must fail via an unopened-context send, not UAF.
+        inv = run_worker(binary, clips[:1], extra=["--invalid"])
+        if inv.returncode == 0:
+            raise RuntimeError("invalid API succeeded")
+        if "invalid API succeeded" in inv.stderr:
+            raise RuntimeError(inv.stderr)
+        tear_raw = run_worker(binary, clips[:1], extra=["--teardown"])
+        if tear_raw.returncode != 0 or not KEPT_LINE.search(tear_raw.stdout):
+            raise RuntimeError("teardown did not keep a decoded frame: " + tear_raw.stdout)
+        tear = parse_workers(tear_raw.stdout)
+        if not tear or tear[0][1] < 1:
+            raise RuntimeError("teardown produced no hashed frames")
+        missing = run_worker(binary, [tmp / "missing.mp4"])
+        if missing.returncode == 0:
             raise RuntimeError("missing clip succeeded")
-        # Hardware mode without a device must not silently software-fallback
-        hw = run_worker(binary, "vaapi", clips[:1], timeout=15)
-        if hw.returncode == 0 and "software frame rejected" not in hw.stderr:
-            # Device present is OK; skip assertion
-            pass
-        elif hw.returncode in (77, 1) or "vaapi device unavailable" in hw.stderr:
-            pass
-        print("PASS: software oracle, association, kill, missing clip")
+        # Cancel the actual worker, not an unrelated process.
+        fifo = tmp / "blocked.h264"
+        os.mkfifo(fifo)
+        proc = subprocess.Popen([str(binary), "software", str(fifo), "yuv420p"],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.2)
+        if proc.poll() is not None:
+            raise RuntimeError("worker exited before cancel: %s" % proc.returncode)
+        proc.send_signal(signal.SIGKILL)
+        proc.wait(timeout=5)
+        if proc.returncode == 0:
+            raise RuntimeError("killed worker reported success")
+        # --processes / --deadline: independent software oracles in parallel.
+        deadline_end = time.monotonic() + deadline
+        kids = []
+        try:
+            for i in range(processes):
+                kids.append(subprocess.Popen(
+                    [str(binary), "software", str(clips[i % 2]), "yuv420p"],
+                    stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True))
+            for kid in kids:
+                remaining = deadline_end - time.monotonic()
+                if remaining <= 0:
+                    raise RuntimeError("process deadline")
+                out, err = kid.communicate(timeout=remaining)
+                if kid.returncode != 0:
+                    raise RuntimeError("process worker failed: " + err)
+                got = parse_workers(out)
+                if len(got) != 1 or got[0][1] < 1:
+                    raise RuntimeError("process worker missing digest")
+        finally:
+            for kid in kids:
+                if kid.poll() is None:
+                    kid.kill()
+        print("PASS: independent software oracles, invalid API, teardown keep, kill, processes")
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--self-test", action="store_true")
     p.add_argument("worker", nargs="?", type=Path)
-    p.add_argument("--processes", type=int, default=1)
+    p.add_argument("--processes", type=int, default=2)
     p.add_argument("--deadline", type=float, default=60)
     args = p.parse_args()
     if args.self_test:
         if not args.worker:
             raise SystemExit("self-test requires WORKER")
-        self_test(args.worker.resolve())
+        self_test(args.worker.resolve(), args.processes, args.deadline)
         return
-    raise SystemExit("use --self-test in hosted CI")
+    raise SystemExit("use --self-test; vaapi is not a software path")
 
 
 if __name__ == "__main__":
