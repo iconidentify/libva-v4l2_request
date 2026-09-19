@@ -180,7 +180,7 @@
       "pass_set_key": "hevc",
       "primary": true,
       "client": "FFmpeg VA-API tests/conformance.py",
-      "notes": "Exact r11 pass set. Failures: RPS_E_qualcomm_5, TSUNEQBD_A_MAIN10_Technicolor_2, VPSSPSPPS_A_MainConcept_1."
+      "notes": "Exact packaged r11 pass set. Failures: RPS_E_qualcomm_5, TSUNEQBD_A_MAIN10_Technicolor_2, VPSSPSPPS_A_MainConcept_1. A separately qualified local FFmpeg n9.0.1 client plus pending-parameter-set patch passes 145/147; it does not change this shipped-driver baseline."
     },
     "JVT-AVC_V1": {
       "name": "JVT-AVC_V1",
@@ -510,12 +510,12 @@
       "platform_id": "apple-avd-m1-t8103"
     },
     {
-      "client": "FFmpeg VA-API tests/conformance.py",
+      "client": "FFmpeg n9.0.1 bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa + pending-parameter-set patch a598cbf599060ff2bb105bb95a24c5dada122b58363ad9d24337cfb1f307f26b; VA-API tests/conformance.py",
       "api": "VA-API",
       "kernel": "linux-asahi 7.1.13.asahi3-1 + omarchy-m1-video patches",
       "library": "libva-v4l2_request 1.3.r11",
       "level": "suite-declared",
-      "result_artifact": "https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/codec-validation-r11-2026-09-15.json",
+      "result_artifact": "https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/evidence/issue15/hevc-parameter-sets-2026-09-19/README.md",
       "id": "avd-m1-hevc-ffmpeg-param-sets",
       "backend": "avd",
       "device": "apple-avd-m1-t8103",
@@ -524,12 +524,12 @@
       "bit_depth": 8,
       "chroma": "4:2:0",
       "coded_picture": "progressive with delayed parameter sets",
-      "tier": "unsupported",
+      "tier": "experimental",
       "criticality": "optional",
-      "outcome": "wrong_output",
-      "outcome_scope": "full_suite",
+      "outcome": "hardware_pass",
+      "outcome_scope": "exact_pass_set",
       "layer": "client",
-      "notes": "VPSSPSPPS_A_MainConcept_1 fails in FFmpeg's parser/output path. Direct GStreamer V4L2 matches the reference; that does not make the FFmpeg VA-API path a hardware pass.",
+      "notes": "The exact selected local client emits all six native-size hardware frames and matches 1ddf74263cb4953cfdfcf99c563d88ea. Its complete suite is 145/147 with no lost r11 pass. The patch is not installed, packaged or upstream; packaged FFmpeg plus driver r11 remains 144/147, so no driver-only release is credited with this client fix.",
       "open_p0": [],
       "platform_id": "apple-avd-m1-t8103"
     },

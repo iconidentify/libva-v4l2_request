@@ -46,6 +46,14 @@ PRIMARY_SUITES = {
     "VP9-TEST-VECTORS": (216, 305),
 }
 README_FRACTIONS = ("144/147", "73/135", "27/69", "216/305")
+HEVC_CLIENT_COMMIT = "bf1b838f2ab88b4f8fd83443325c782ea0e0f7fa"
+HEVC_CLIENT_PATCH_SHA256 = (
+    "a598cbf599060ff2bb105bb95a24c5dada122b58363ad9d24337cfb1f307f26b"
+)
+HEVC_CLIENT_EVIDENCE = (
+    "https://github.com/iconidentify/omarchy-m1-video/blob/main/"
+    "docs/evidence/issue15/hevc-parameter-sets-2026-09-19/README.md"
+)
 PROFILE_ARRAY = re.compile(
     r"static const VAProfile \w+_profiles\[\] = \{(.*?)\};", re.S
 )
@@ -222,6 +230,36 @@ def validate_pass_sets(matrix: dict, pass_sets: dict) -> list[str]:
     ):
         if vector not in hevc_fail:
             errors.append(f"HEVC failing vector {vector} missing from pinned pass sets")
+    return errors
+
+
+def validate_hevc_client_qualification(matrix: dict) -> list[str]:
+    """Keep the selected client result distinct from the shipped r11 baseline."""
+    errors: list[str] = []
+    rows = [
+        row for row in matrix.get("rows", [])
+        if isinstance(row, dict) and row.get("id") == "avd-m1-hevc-ffmpeg-param-sets"
+    ]
+    if len(rows) != 1:
+        return ["delayed-parameter-set client row must appear exactly once"]
+    row = rows[0]
+    client = row.get("client") or ""
+    if HEVC_CLIENT_COMMIT not in client:
+        errors.append("delayed-parameter-set row missing exact FFmpeg commit")
+    if HEVC_CLIENT_PATCH_SHA256 not in client:
+        errors.append("delayed-parameter-set row missing exact client patch SHA-256")
+    if row.get("result_artifact") != HEVC_CLIENT_EVIDENCE:
+        errors.append("delayed-parameter-set row must link the issue #15 hardware evidence")
+    if row.get("tier") != "experimental" or row.get("outcome") != "hardware_pass":
+        errors.append("selected delayed-parameter-set client must remain an experimental hardware pass")
+    if row.get("outcome_scope") != "exact_pass_set" or row.get("layer") != "client":
+        errors.append("delayed-parameter-set result must remain a client-layer exact pass set")
+    hevc = matrix.get("suites", {}).get("JCT-VC-HEVC_V1", {})
+    if (hevc.get("passed"), hevc.get("total")) != (144, 147):
+        errors.append("selected client result must not replace the packaged r11 144/147 baseline")
+    notes = row.get("notes") or ""
+    if "145/147" not in notes or "not installed" not in notes:
+        errors.append("delayed-parameter-set notes must retain the 145/147 and not-installed limits")
     return errors
 
 
@@ -460,6 +498,7 @@ def main() -> int:
     errors.check(isinstance(schema, dict) and "$defs" in schema, "schema missing $defs")
     errors.extend(validate_matrix_object(matrix))
     errors.extend(validate_pass_sets(matrix, pass_sets))
+    errors.extend(validate_hevc_client_qualification(matrix))
     errors.extend(
         validate_profile_coverage(matrix, advertised_profiles_from_source(root))
     )
