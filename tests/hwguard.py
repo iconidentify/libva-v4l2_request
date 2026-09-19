@@ -98,6 +98,49 @@ def process_group(pid: int) -> int | None:
         return None
 
 
+def read_fd_links(fd_dir: Path) -> list[str] | None:
+    """Resolve a process's open fds, tolerating individual fds vanishing.
+
+    Returns None only when the process itself is gone. Reading the fds as one
+    comprehension made a single fd closing mid-scan discard the whole process,
+    which matters because that process may hold the decoder on a different fd:
+    losing it reports the decoder idle while it is in use, and the guard then
+    starts a run against someone else's decoder. Busy processes close fds
+    constantly, so this needs no exit to trigger.
+    """
+    try:
+        entries = list(fd_dir.iterdir())
+    except OSError:
+        return None
+    links: list[str] = []
+    for fd in entries:
+        try:
+            links.append(os.readlink(fd))
+        except OSError:
+            continue
+    return links
+
+
+def pid_alive(pid: int) -> bool:
+    """Whether a pid still exists. A task that has exited is not stuck."""
+    return pid > 0 and Path(f"/proc/{pid}").exists()
+
+
+def exited_pid() -> int:
+    """A pid that has certainly exited, for exercising the stuck-task check.
+
+    Retries because a reaped pid is immediately reusable; without this the
+    check races the allocator on a busy machine.
+    """
+    proc = subprocess.Popen(["true"])
+    for _ in range(10):
+        proc.wait(timeout=10)
+        if not pid_alive(proc.pid):
+            return proc.pid
+        proc = subprocess.Popen(["true"])
+    return proc.pid
+
+
 def is_owned_holder(holder_pid: int, child_pid: int) -> bool:
     if holder_pid in (child_pid, os.getpid()):
         return True
@@ -154,7 +197,13 @@ class DecoderState:
 
     @property
     def wedged(self) -> bool:
-        return any(task.get("state") == "D" for task in self.stuck_tasks)
+        # Stuck tasks are sampled in an earlier pass. A task that has since
+        # exited is not wedging anything, and preflight() consumes this too,
+        # so an unrelated process transiently in a decoder wchan must not
+        # refuse the run with "decoder already wedged".
+        return any(task.get("state") == "D"
+                   and pid_alive(int(task.get("pid") or 0))
+                   for task in self.stuck_tasks)
 
 
 class EventLog:
@@ -220,9 +269,8 @@ class LinuxBackend:
                 owner_root = self.owner_pid if self.owner_pid and is_owned_holder(
                     int(pid_dir.name), self.owner_pid
                 ) else None
-                try:
-                    fds = [os.readlink(fd) for fd in (pid_dir / "fd").iterdir()]
-                except OSError:
+                fds = read_fd_links(pid_dir / "fd")
+                if fds is None:
                     continue
                 if nodes.intersection(fds):
                     cmdline = (_read(pid_dir / "cmdline") or "").replace("\0", " ").strip()
@@ -236,7 +284,15 @@ class LinuxBackend:
             task_root = pid_dir / "task"
             if not task_root.is_dir():
                 continue
-            for task in task_root.iterdir():
+            try:
+                tasks = list(task_root.iterdir())
+            except OSError:
+                # The process exited between is_dir() and the scan. The holder
+                # loop above already tolerates this; without it a short-lived
+                # client can kill the guard mid-run with an unhandled
+                # FileNotFoundError, skipping the normal abort path.
+                continue
+            for task in tasks:
                 wchan = _read(task / "wchan") or ""
                 if not any(token in wchan for token in DECODER_WCHANS):
                     continue
@@ -310,9 +366,9 @@ class FakeBackend:
     def inject_holder(self, pid: int = 99999) -> None:
         (self.root / "holders.json").write_text(json.dumps([{"pid": pid, "cmd": "/usr/bin/mpv /secret/clip.mkv"}]))
 
-    def inject_stuck(self) -> None:
+    def inject_stuck(self, pid: int = 1) -> None:
         (self.root / "stuck.json").write_text(json.dumps([
-            {"pid": 1, "tid": 1, "state": "D", "wchan": "avd_submit_job"}
+            {"pid": pid, "tid": pid, "state": "D", "wchan": "avd_submit_job"}
         ]))
 
 
@@ -529,6 +585,8 @@ def run_guarded(
                 backend.inject_holder(proc.pid)
             elif inject == "stuck-child" and fake:
                 backend.inject_stuck()
+            elif inject == "stuck-exited" and fake:
+                backend.inject_stuck(exited_pid())
             now = time.monotonic()
             if now >= deadline_at:
                 timed_out = True
@@ -546,9 +604,14 @@ def run_guarded(
                 request_stop("foreign-client")
                 log.write(event="abort", reason="foreign-client", holders=foreign)
             if current.wedged:
+                # Stuck tasks are collected in an earlier pass. A short-lived
+                # owned client sampled in D state can exit before ownership is
+                # resolved, and the ancestry walk then reports it foreign. A
+                # task that no longer exists is not wedging the decoder.
                 other = [
                     task for task in current.stuck_tasks
-                    if not is_owned_holder(int(task.get("pid") or 0), proc.pid)
+                    if pid_alive(int(task.get("pid") or 0))
+                    and not is_owned_holder(int(task.get("pid") or 0), proc.pid)
                 ]
                 if other:
                     wedged = True
@@ -766,6 +829,48 @@ def run_self_test() -> int:
     check("returncode" in stuck_final, "stuck-child final missing returncode")
     check("idle" in stuck_final, "stuck-child final missing idle")
 
+    # A stuck task whose pid already exited must not abort the run. Stuck
+    # tasks are collected in one pass and their ownership resolved in a later
+    # one, so a short-lived owned client sampled in D state can be gone by the
+    # time the ancestry walk runs; the walk then reports it foreign. Before
+    # this check that raced into a spurious "wedged" abort under sustained
+    # client churn while the decoder was healthy.
+    exited = run_guarded(
+        sleeper, fake=True, fake_root=fake_root / "x", lock_dir=lock_dir / "x",
+        deadline=8, poll=0.05, inject="stuck-exited", log_path=work / "exited.jsonl",
+    )
+    check(not exited.wedged and exited.abort_reason != "wedged",
+          f"exited stuck task must not abort as wedged: {exited}")
+    check(not pid_alive(exited_pid()), "exited pid must read as gone")
+    check(pid_alive(os.getpid()), "live pid must read as alive")
+
+    # DecoderState.wedged is consumed by preflight() as well as the monitor
+    # loop, so cover both directions directly: a live foreign stuck task still
+    # reads as wedged, an exited one does not.
+    def _state(pid: int) -> DecoderState:
+        return DecoderState(
+            module_loaded=True, video_node="/dev/video-fake", media_node=None,
+            stuck_tasks=[{"pid": pid, "tid": pid, "state": "D",
+                          "wchan": "avd_submit_job"}],
+        )
+    # One unreadable fd must not discard the whole process from the holder
+    # scan: it may hold the decoder on another fd, and losing it reports the
+    # decoder idle while in use, so the guard would start against a foreign
+    # client. A regular file stands in for an fd that cannot be readlink'd.
+    fd_dir = work / "fddir"
+    fd_dir.mkdir(parents=True, exist_ok=True)
+    (fd_dir / "0").symlink_to("/dev/video-fake")
+    (fd_dir / "1").write_text("not a symlink")
+    links = read_fd_links(fd_dir)
+    check(links is not None and "/dev/video-fake" in links,
+          f"unreadable fd must not discard the holder: {links}")
+    check(read_fd_links(work / "nonexistent-fd-dir") is None,
+          "a vanished process must read as None, not an empty holder")
+
+    check(_state(1).wedged, "live stuck task must still read as wedged")
+    check(not _state(exited_pid()).wedged,
+          "exited stuck task must not read as wedged (preflight consumer)")
+
     # SIGINT: child sleeps, parent handler via inject=signal using a subprocess sending SIGINT
     sig_script = work / "sig.py"
     sig_script.write_text(
@@ -875,7 +980,8 @@ def main() -> int:
                         help="include unredacted local command detail")
     parser.add_argument(
         "--inject",
-        choices=("timeout", "avd-error", "foreign", "owned-holder", "stuck-child"),
+        choices=("timeout", "avd-error", "foreign", "owned-holder", "stuck-child",
+                 "stuck-exited"),
     )
     parser.add_argument(
         "--journal-since",
