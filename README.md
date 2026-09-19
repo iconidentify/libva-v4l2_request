@@ -22,6 +22,12 @@ eligible-subset percentages. No matrix row is currently `supported`. Compiled-in
 AV1/VP8/MPEG-2 backends and 12-bit/4:2:2/4:4:4 formats are untested or
 unsupported, not inferred from source files. Safe rejection is not decode support.
 
+A separately qualified local FFmpeg n9.0.1 build with the pending-parameter-set
+client patch passes HEVC 145/147 on the same r11 driver, adding
+`VPSSPSPPS_A_MainConcept_1` without losing a pass. The support matrix pins the exact
+client commit and patch hash. That client is not packaged or installed, so the shipped
+r11 baseline remains 144/147 and this is not a driver-only improvement.
+
 ## Development roadmap
 
 See the [roadmap and ticket index](docs/ROADMAP.md) for planned codec, reliability,
