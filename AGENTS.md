@@ -25,3 +25,12 @@ https://github.com/iconidentify/libva-v4l2_request/issues/8; the roadmap is issu
 - Keep routine reports and dependency patches in these forks. No upstream reports
   or social posts are implied by an issue claim. Release or renew the claim and
   leave a concrete handoff when stopping.
+
+## M1 delivery priority and shared desktop builds
+
+Follow the companion [current delivery plan](https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/M1_DELIVERY.md)
+and the live roadmap before choosing new owner-directed work. Preserve existing
+claims. On the shared desktop, invoke the companion `tools/bounded-build` from
+this checkout for builds/CPU tests; pass one worker. Finish that fixed-name job
+before acquiring the separate hardware guard. Do not raise limits or delete
+retained evidence to make a run pass. Portable/off-host CI stays unchanged.

@@ -18,35 +18,38 @@ reviewed hardware evidence.
 The [live roadmap](https://github.com/iconidentify/libva-v4l2_request/issues/7)
 controls current status. These are entry points, not permanent reservations:
 
-Updated after the 2026-09-18 concurrency qualification and new PR intake. Start from the current default branch;
-merged prerequisites are already there. Re-read live claims before choosing.
+Updated for the owner-approved 2026-09-20 delivery reset. Read the
+[current M1 delivery plan](https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/M1_DELIVERY.md)
+before choosing new work. The next milestone is one exact candidate compared
+with the installed baseline, actual mpv/Chrome playback and recovery evidence,
+and a packaging decision. Existing test tools are the starting point.
 
-| Scope | Next concrete deliverable | State at this handoff |
-| --- | --- | --- |
-| [GStreamer observer API #96](https://github.com/iconidentify/omarchy-m1-video/issues/96) | Actual direct-V4L2 pause/retain/writer-receipt API and real-entrypoint offline tests in its own experimental subtree | Ready offline; no live copy or hardware claim |
-| [VA observer API #95](https://github.com/iconidentify/omarchy-m1-video/issues/95) | Actual default-off VA producer barrier, retained surface/allocation ownership and writer receipts | Claimed by z23; coordinate, do not duplicate |
-| [H.264 actual admission #79](https://github.com/iconidentify/omarchy-m1-video/issues/79) | Actual slice/issue/cancel, AU/thread/configuration/profile admission beyond merged NAL/SPS/PPS coverage | New [PR97](https://github.com/iconidentify/omarchy-m1-video/pull/97) under adversarial review; remap disabled, not yet accepted |
-| [HEVC observer integration #82](https://github.com/iconidentify/omarchy-m1-video/issues/82) | Integrate the two actual adapters with verified exporter/mapping identity, bounded copying and a reviewed campaign | Blocked on #95/#96 and original integration criteria; model/static/helper research already delivered |
-| [HEVC parameter sets #44](https://github.com/iconidentify/omarchy-m1-video/issues/44) | Local FFmpeg parser fix and full-output software regressions | Claimed by SarthakU; coordinate, do not duplicate |
-| [Concurrency #36](https://github.com/iconidentify/libva-v4l2_request/issues/36) / [worker #94](https://github.com/iconidentify/libva-v4l2_request/issues/94) | Completed real client and selected M1 qualification: 180 groups, 2,560 exact frame hashes, 200 retained frames | Accepted through driver [PR96](https://github.com/iconidentify/libva-v4l2_request/pull/96) / [PR97](https://github.com/iconidentify/libva-v4l2_request/pull/97); wider codec/client/boot gates remain separate |
-| [Allocator #81](https://github.com/iconidentify/omarchy-m1-video/issues/81) / [AV1 unwind #86](https://github.com/iconidentify/omarchy-m1-video/issues/86) | Actual-source repairs and combined isolated candidate qualification | Complete through PR84/89/91; original module restored, not shipped or AV1 runtime-qualified |
-| [Capture backing #52](https://github.com/iconidentify/omarchy-m1-video/issues/52) / [driver #90](https://github.com/iconidentify/libva-v4l2_request/issues/90) | Establish allocation/export/import/CPU coherence before changing cache policy, then qualify Chromium | Blocked on reviewed contract; respect #90's contributor claim |
+Installed r11, later selected userspace fixes, the separately qualified FFmpeg
+HEVC fix and experimental kernel/observer work are different delivery states.
+The current candidate is driver `5b5046cbda6892f4a63df0015857a80bd42c17cf`
+with the installed kernel and clients; its full client qualification is pending.
+The [first comparison plan](https://github.com/iconidentify/omarchy-m1-video/blob/main/docs/M1_PLAYBACK_PLAN.md)
+covers a bounded decode/drain/seek-to-start/reopen workload under #45, not the
+whole format-transition contract.
 
-Completed research/tools are inputs, not new assignments: client-selection #41/#73,
-HEVC control traces driver #84, VP9 state validator companion #42, field-feasibility
-#43 and reference-memory audit #77. Their hardware/feature parents remain open.
-Driver [#22](https://github.com/iconidentify/libva-v4l2_request/issues/22) fuzzing
-retains its active claim. The completed concurrency evidence and its limits are
-[reproducible offline](https://github.com/iconidentify/libva-v4l2_request/blob/avd-fixes/docs/concurrency-2026-09-18/README.md).
-Preserve the merged work and claim only an available concrete leaf. The live queue
-can change after this dated snapshot; check comments as well as labels.
+Keep active contributor claims intact, including driver #22 and companion #128.
+The HEVC observer campaign has one next reviewed attempt and an explicit decision
+point if instrumentation fails again. Do not duplicate it or add another general
+framework. Additional platforms, interlacing, advanced profiles, Vulkan and
+performance are deferred for new owner-directed work until the C1 decision.
+Existing contributors may finish their agreed scopes.
 
-Check the **open, ready** queues in the
+On the shared desktop, use the companion `tools/bounded-build` wrapper from the
+driver checkout for builds and CPU tests, with one build/test worker. It enforces
+one cooperating job, CPU/memory/task limits and disk-backed temporary files.
+Finish builds before acquiring a separate guarded decoder window. This local
+host rule does not add a systemd requirement to portable CI or other contributors.
+
+Check the open ready queues and complete ticket discussions in the
 [driver](https://github.com/iconidentify/libva-v4l2_request/issues?q=is%3Aissue%20is%3Aopen%20label%3Astatus%3Aready)
-and [companion](https://github.com/iconidentify/omarchy-m1-video/issues?q=is%3Aissue%20is%3Aopen%20label%3Astatus%3Aready)
-before choosing. Existing claims and PRs take precedence over this table. A ticket
-marked blocked is not available for its whole implementation; claim its ready
-offline child instead. No task here promises a specific increase in passing videos.
+and [companion](https://github.com/iconidentify/omarchy-m1-video/issues?q=is%3Aissue%20is%3Aopen%20label%3Astatus%3Aready).
+The dated contributor-wave table was removed because its claims and PR states
+were stale. Historical evidence below and the full roadmap catalogue remain.
 
 ## Claim one bounded task
 
