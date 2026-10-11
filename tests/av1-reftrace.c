@@ -281,6 +281,63 @@ static void snapshot(const char *name)
     assert(!fclose(out));
 }
 
+static void admission_case(const char *name)
+{
+    bool reject = !strcmp(name, "required-missing") || !strcmp(name, "required-foreign") ||
+                  !strcmp(name, "required-failed") || !strcmp(name, "required-detached") ||
+                  !strcmp(name, "primary-bounds") || !strcmp(name, "slot-bounds");
+    picture(0, 0, 0);
+    assert(assemble() == VA_STATUS_SUCCESS && !requests_queued);
+    picture(1, 1, 4);
+    pic.ref_frame_map[0] = sid[0];
+    pic.primary_ref_frame = 0;
+    assert(assemble() == VA_STATUS_SUCCESS && requests_queued == 1);
+    picture(2, 1, 2);
+    pic.ref_frame_map[3] = sid[1];
+    pic.ref_frame_idx[1] = 3;
+    pic.primary_ref_frame = 1;
+    if (!strcmp(name, "required-missing"))
+        pic.ref_frame_map[3] = VA_INVALID_SURFACE;
+    if (!strcmp(name, "required-foreign") || !strcmp(name, "required-failed") ||
+        !strcmp(name, "required-detached")) {
+        struct v4l2r_surface *s = V4L2R_SURFACE(&drv, sid[3]);
+        pic.ref_frame_map[3] = sid[3];
+        if (!strcmp(name, "required-foreign")) s->ctx = NULL;
+        if (!strcmp(name, "required-failed")) s->decode_status = VA_STATUS_ERROR_DECODING_ERROR;
+        if (!strcmp(name, "required-detached")) s->capture_index = -1;
+    }
+    if (!strcmp(name, "primary-bounds")) pic.primary_ref_frame = 8;
+    if (!strcmp(name, "slot-bounds")) pic.ref_frame_idx[1] = 8;
+    if (!strcmp(name, "key-default")) {
+        pic.pic_info_fields.bits.frame_type = 0;
+        pic.ref_frame_map[3] = VA_INVALID_SURFACE;
+    }
+    if (!strcmp(name, "intra-default")) {
+        pic.pic_info_fields.bits.frame_type = 2;
+        pic.ref_frame_map[3] = VA_INVALID_SURFACE;
+    }
+    if (!strcmp(name, "resilient-default")) {
+        pic.pic_info_fields.bits.error_resilient_mode = 1;
+        pic.ref_frame_map[3] = VA_INVALID_SURFACE;
+    }
+    if (!strcmp(name, "none-default")) {
+        pic.primary_ref_frame = 7;
+        pic.ref_frame_map[3] = VA_INVALID_SURFACE;
+    }
+    assert(assemble() == (reject ? VA_STATUS_ERROR_INVALID_BUFFER : VA_STATUS_SUCCESS));
+    assert(requests_queued == 2 && log_count == 2);
+    assert(codec.pend_valid == !reject);
+    assert(av1_flush(ctx, NULL) == VA_STATUS_SUCCESS);
+    assert(requests_queued == (reject ? 2u : 3u));
+    if (!reject) {
+        assert(frame(2)->primary_ref_frame == pic.primary_ref_frame);
+        assert(frame(2)->reference_frame_ts[3] ==
+               (!strcmp(name, "valid-primary") ? 2000u : 0u));
+        for (unsigned int i = 0; i < 8; i++)
+            if (i != 3) assert(!frame(2)->reference_frame_ts[i]);
+    }
+}
+
 int main(int argc, char **argv)
 {
     char text[32768], match[256], log_path[4096];
@@ -295,6 +352,18 @@ int main(int argc, char **argv)
         assert(!unsetenv("LIBVA_V4L2_TRACE"));
     assert(dup2(fileno(sink), STDERR_FILENO) == STDERR_FILENO);
     setup();
+    if (!strncmp(argv[1], "required-", 9) || !strcmp(argv[1], "primary-bounds") ||
+        !strcmp(argv[1], "slot-bounds") || !strcmp(argv[1], "valid-primary") ||
+        !strcmp(argv[1], "key-default") || !strcmp(argv[1], "intra-default") ||
+        !strcmp(argv[1], "resilient-default") || !strcmp(argv[1], "none-default")) {
+        admission_case(argv[1]);
+        snapshot(argv[3]);
+        teardown();
+        log_reset();
+        fclose(sink);
+        printf("PASS %s trace=%s primary-reference admission and queue boundary\n", argv[1], argv[2]);
+        return 0;
+    }
     picture(0, 0, 0);
     assert(assemble() == VA_STATUS_SUCCESS);
     assert(!requests_queued); /* EndPicture defers the key picture. */
@@ -317,11 +386,12 @@ int main(int argc, char **argv)
         pic.ref_frame_idx[1] = 3;
         pic.primary_ref_frame = 1;
         pic.pic_info_fields.bits.show_frame = 0;
-        if (!strcmp(argv[1], "default"))
+        if (!strcmp(argv[1], "default") || !strcmp(argv[1], "default-missing") ||
+            !strcmp(argv[1], "default-foreign"))
             pic.pic_info_fields.bits.error_resilient_mode = 1;
-        if (!strcmp(argv[1], "missing"))
+        if (!strcmp(argv[1], "default-missing"))
             pic.ref_frame_map[3] = VA_INVALID_SURFACE;
-        if (!strcmp(argv[1], "foreign"))
+        if (!strcmp(argv[1], "default-foreign"))
             {
             pic.ref_frame_map[3] = sid[3];
             V4L2R_SURFACE(&drv, sid[3])->ctx = NULL;
@@ -344,8 +414,8 @@ int main(int argc, char **argv)
         assert(f->primary_ref_frame == 1 && f->ref_frame_idx[1] == 3);
         assert(f->reference_frame_ts[0] == 1000);
         assert(f->reference_frame_ts[3] ==
-               ((!strcmp(argv[1], "missing") || !strcmp(argv[1], "foreign")) ? 0 : 2000));
-        assert(f->order_hints[2] == (!strcmp(argv[1], "missing") ? 0 : 4));
+               ((!strcmp(argv[1], "default-missing") || !strcmp(argv[1], "default-foreign")) ? 0 : 2000));
+        assert(f->order_hints[2] == (!strcmp(argv[1], "default-missing") ? 0 : 4));
         assert(ctx->captures[0].last_ref_seq == 3);
         if (!strcmp(argv[1], "basic") || !strcmp(argv[1], "default"))
             assert(ctx->captures[1].last_ref_seq == 3);
@@ -363,7 +433,8 @@ int main(int argc, char **argv)
     } else {
         assert(strstr(text, "job=1 target=") && strstr(text, "cdf=default cdf_slot=-1"));
         assert(strstr(text, "job=3 target=") && strstr(text, "primary=1"));
-        assert(strstr(text, !strcmp(argv[1], "default") ?
+        assert(strstr(text, (!strcmp(argv[1], "default") || !strcmp(argv[1], "default-missing") ||
+                !strcmp(argv[1], "default-foreign")) ?
                "primary=1 cdf=default cdf_slot=-1" : "primary=1 cdf=reference cdf_slot=3"));
         for (unsigned int job = 1; job <= 3; job++)
             for (unsigned int slot = 0; slot < 8; slot++) {

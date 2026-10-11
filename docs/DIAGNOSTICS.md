@@ -152,3 +152,12 @@ These diagnostics do not change decoding or establish AV1 inter-frame support.
 They include small control values and surface IDs, never bitstream/image bytes,
 file names, physical addresses or pointers. Hardware use still requires the
 separate decoder guard and authorization described in CONTRIBUTING.md.
+
+An inter picture that inherits CDF state is rejected during picture-parameter
+assembly if its selected primary index/slot is invalid or its translated
+reference timestamp is zero. The reference must be owned by the current decoder
+context with a valid CAPTURE binding and successful decode status. The
+`reference` diagnostic uses operation `av1-primary-reference`. Key/intra,
+error-resilient and primary-reference-none frames use default CDF state and
+remain accepted, including unused empty reference slots. This input admission
+does not establish the cause of an AV1 hardware fault.

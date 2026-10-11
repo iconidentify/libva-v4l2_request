@@ -837,6 +837,29 @@ static VAStatus av1_flush(struct v4l2r_context *ctx,
 	return av1_submit_pending(ctx, codec->pend_fallback);
 }
 
+/* Inherited CDF state must belong to the selected reference capture buffer. */
+static VAStatus av1_validate_primary(struct v4l2r_context *ctx)
+{
+	const struct av1_context *codec = ctx->codec_priv;
+	const struct v4l2_ctrl_av1_frame *frame = &codec->frame;
+
+	if (frame->frame_type == V4L2_AV1_KEY_FRAME ||
+	    frame->frame_type == V4L2_AV1_INTRA_ONLY_FRAME ||
+	    (frame->flags & V4L2_AV1_FRAME_FLAG_ERROR_RESILIENT_MODE) ||
+	    frame->primary_ref_frame == 7)
+		return VA_STATUS_SUCCESS;
+
+	if (frame->primary_ref_frame < 7 &&
+	    frame->ref_frame_idx[frame->primary_ref_frame] < 8 &&
+	    frame->reference_frame_ts[frame->ref_frame_idx[frame->primary_ref_frame]])
+		return VA_STATUS_SUCCESS;
+
+	v4l2r_diag(ctx, V4L2R_DIAG_LEVEL_WARNING, V4L2R_DIAG_REFERENCE,
+		   "av1-primary-reference", 0,
+		   "AV1 inherited CDF state requires an available primary reference in this decoder context");
+	return VA_STATUS_ERROR_INVALID_BUFFER;
+}
+
 static VAStatus av1_render_buffer(struct v4l2r_context *ctx,
 				  struct v4l2r_buffer *buf)
 {
@@ -858,6 +881,9 @@ static VAStatus av1_render_buffer(struct v4l2r_context *ctx,
 		}
 		av1_fill_sequence(codec);
 		av1_fill_frame(ctx);
+		VAStatus status = av1_validate_primary(ctx);
+		if (status != VA_STATUS_SUCCESS)
+			return status;
 		if (codec->has_film_grain)
 			av1_fill_film_grain(codec);
 		return VA_STATUS_SUCCESS;
