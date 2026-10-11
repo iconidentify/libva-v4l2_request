@@ -384,6 +384,10 @@ if conf.get('HAVE_V4L2_CTRL_AV1') == 1
     include_directories: [root_inc, include_directories('../src')],
     dependencies: [libva_dep, libdrm_dep, threads_dep],
     link_args: ['-Wl,--wrap=ioctl', '-Wl,--wrap=poll', '-Wl,--wrap=__poll_chk'])
+  foreach gate : ['gate-set', 'gate-empty', 'gate-unset']
+    test('av1-reftrace-' + gate, av1_reftrace,
+         args: [gate, 'off', meson.current_build_dir() / ('av1-' + gate)], timeout: 15)
+  endforeach
   foreach case : ['basic', 'default', 'default-missing', 'default-foreign', 'failure',
                   'required-missing', 'required-foreign', 'required-failed', 'required-detached',
                   'primary-bounds', 'slot-bounds', 'valid-primary', 'key-default',

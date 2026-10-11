@@ -338,6 +338,45 @@ static void admission_case(const char *name)
     }
 }
 
+static pthread_barrier_t gate_barrier;
+static bool gate_expected;
+
+static void *gate_thread(void *unused)
+{
+    (void)unused;
+    int ret = pthread_barrier_wait(&gate_barrier);
+    assert(ret == 0 || ret == PTHREAD_BARRIER_SERIAL_THREAD);
+    assert(v4l2r_trace_enabled() == gate_expected);
+    v4l2r_trace("concurrent trace gate\n");
+    return NULL;
+}
+
+static void gate_case(const char *name, FILE *sink)
+{
+    pthread_t threads[32];
+    char text[8192];
+    gate_expected = strcmp(name, "gate-unset") != 0;
+    if (gate_expected)
+        assert(!setenv("LIBVA_V4L2_TRACE", !strcmp(name, "gate-empty") ? "" : "1", 1));
+    else
+        assert(!unsetenv("LIBVA_V4L2_TRACE"));
+    assert(!pthread_barrier_init(&gate_barrier, NULL, 32));
+    for (unsigned int i = 0; i < 32; i++)
+        assert(!pthread_create(&threads[i], NULL, gate_thread, NULL));
+    for (unsigned int i = 0; i < 32; i++)
+        assert(!pthread_join(threads[i], NULL));
+    assert(!pthread_barrier_destroy(&gate_barrier));
+    if (gate_expected) assert(!unsetenv("LIBVA_V4L2_TRACE"));
+    else assert(!setenv("LIBVA_V4L2_TRACE", "1", 1));
+    assert(v4l2r_trace_enabled() == gate_expected); /* First observation is retained. */
+    fflush(stderr);
+    rewind(sink);
+    text[fread(text, 1, sizeof(text) - 1, sink)] = 0;
+    unsigned int count = 0;
+    for (char *p = text; (p = strstr(p, "concurrent trace gate")); p++) count++;
+    assert(count == (gate_expected ? 32u : 0u));
+}
+
 int main(int argc, char **argv)
 {
     char text[32768], match[256], log_path[4096];
@@ -345,6 +384,13 @@ int main(int argc, char **argv)
     assert(snprintf(log_path, sizeof(log_path), "%s.log", argv[3]) < (int)sizeof(log_path));
     FILE *sink = fopen(log_path, "w+");
     assert(sink);
+    if (!strncmp(argv[1], "gate-", 5)) {
+        assert(dup2(fileno(sink), STDERR_FILENO) == STDERR_FILENO);
+        gate_case(argv[1], sink);
+        fclose(sink);
+        printf("PASS %s concurrent first-observation trace gate\n", argv[1]);
+        return 0;
+    }
     bool enabled = !strcmp(argv[2], "on");
     if (enabled)
         assert(!setenv("LIBVA_V4L2_TRACE", "1", 1));
@@ -358,6 +404,17 @@ int main(int argc, char **argv)
         !strcmp(argv[1], "resilient-default") || !strcmp(argv[1], "none-default")) {
         admission_case(argv[1]);
         snapshot(argv[3]);
+        fflush(stderr);
+        rewind(sink);
+        text[fread(text, 1, sizeof(text) - 1, sink)] = 0;
+        if (!enabled) assert(!strstr(text, "AV1 job"));
+        else {
+            assert(strstr(text, "job=1 target=") && strstr(text, "job=2 target="));
+            assert((strstr(text, "job=3 target=") != NULL) == (requests_queued == 3));
+            if (requests_queued == 3)
+                assert(strstr(text, !strcmp(argv[1], "valid-primary") ?
+                       "primary=1 cdf=reference cdf_slot=3" : "cdf=default cdf_slot=-1"));
+        }
         teardown();
         log_reset();
         fclose(sink);
