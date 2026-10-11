@@ -83,6 +83,7 @@ struct v4l2r_driver;
 struct v4l2r_context;
 struct v4l2r_codec;
 
+bool v4l2r_trace_enabled(void);
 void v4l2r_trace(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 /* --- diagnostics (diag.c), categories documented in docs/DIAGNOSTICS.md --- */

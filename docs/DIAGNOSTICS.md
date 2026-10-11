@@ -125,3 +125,30 @@ with zero accepted output on both the preceding and diagnostic builds. The
 strict full AVC comparison therefore remains non-green even though no prior
 hardware pass is lost. This is regression evidence, not expanded support or
 boot/display qualification.
+
+### AV1 held-picture reference diagnostics
+
+`LIBVA_V4L2_TRACE=1` also writes `AV1 job`, `AV1 dpb` and `AV1 refs` lines
+alongside the existing OUTPUT/CAPTURE lifecycle trace on standard error. Leave
+that variable unset to disable both. The switch is read once per process.
+
+A context identifier and held-picture ordinal join the ten lines for each
+submission attempt. The job line records the target surface, CAPTURE index,
+OUTPUT/request identifiers, frame type, order hint, flags, primary reference,
+refresh mask and returned VA status. Eight DPB lines pair the saved VA surface
+IDs with the translated V4L2 reference timestamps; the refs line preserves all
+seven reference indices and order hints. These are client controls and queue
+outcomes. `cdf=reference` identifies the requested DPB slot, and a zero timestamp
+is visible explicitly; neither proves which buffer the kernel actually found.
+`cdf=default` covers intra, error-resilient and primary-reference-none frames.
+An invalid primary/slot is reported without indexing outside the control arrays.
+
+Only a successful submission result means this attempt queued successfully.
+The submitted counter is the context's cumulative CAPTURE-queue count, not an
+AV1 display-frame number. Deferred submission, hidden frames and reordered
+output mean a second displayed picture need not be the second coded job.
+
+These diagnostics do not change decoding or establish AV1 inter-frame support.
+They include small control values and surface IDs, never bitstream/image bytes,
+file names, physical addresses or pointers. Hardware use still requires the
+separate decoder guard and authorization described in CONTRIBUTING.md.

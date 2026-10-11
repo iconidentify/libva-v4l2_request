@@ -35,17 +35,23 @@
  * same clock as the libva LIBVA_TRACE logs) and built in one buffer so lines
  * from the decode and VO threads stay intact and orderable.
  */
-void v4l2r_trace(const char *fmt, ...)
+bool v4l2r_trace_enabled(void)
 {
 	static int enabled = -1;
+
+	if (enabled < 0)
+		enabled = getenv("LIBVA_V4L2_TRACE") != NULL;
+	return enabled;
+}
+
+void v4l2r_trace(const char *fmt, ...)
+{
 	struct timespec ts;
 	char buf[512];
 	va_list args;
 	int n;
 
-	if (enabled < 0)
-		enabled = getenv("LIBVA_V4L2_TRACE") != NULL;
-	if (!enabled)
+	if (!v4l2r_trace_enabled())
 		return;
 
 	clock_gettime(CLOCK_MONOTONIC, &ts);

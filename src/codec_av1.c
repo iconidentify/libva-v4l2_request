@@ -10,6 +10,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+#include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -73,6 +74,9 @@ struct av1_context {
 	struct v4l2r_picture pend_pic;
 	uint32_t pend_current;		/* held frame's current_frame surface */
 	uint8_t pend_fallback;		/* mask to use if flushed before next frame */
+	VASurfaceID pend_refs[8];
+	uint64_t next_job;
+	uint64_t pend_job;
 };
 
 static void av1_fill_sequence(struct av1_context *codec)
@@ -721,6 +725,57 @@ static uint8_t av1_fallback_refresh(const struct av1_context *codec)
 	return (uint8_t)~referenced;
 }
 
+/* Trace client controls and queue outcome, not the kernel's reference lookup. */
+static void av1_trace_pending(struct v4l2r_context *ctx, VAStatus status)
+{
+	const struct av1_context *codec = ctx->codec_priv;
+	const struct v4l2_ctrl_av1_frame *frame = &codec->pend_frame;
+	const struct v4l2r_picture *pic = &codec->pend_pic;
+	const char *cdf;
+	int slot = -1;
+
+	if (!v4l2r_trace_enabled())
+		return;
+	if (frame->frame_type == AV1_KEY_FRAME ||
+	    frame->frame_type == AV1_INTRA_ONLY_FRAME ||
+	    (frame->flags & V4L2_AV1_FRAME_FLAG_ERROR_RESILIENT_MODE) ||
+	    frame->primary_ref_frame == 7)
+		cdf = "default";
+	else if (frame->primary_ref_frame < 7 &&
+		 frame->ref_frame_idx[frame->primary_ref_frame] < 8) {
+		cdf = "reference";
+		slot = frame->ref_frame_idx[frame->primary_ref_frame];
+	} else
+		cdf = "invalid";
+
+	v4l2r_trace("AV1 job ctx=%u job=%" PRIu64
+		    " target=0x%08x capture=%d output=%u request=%d"
+		    " type=%u order=%u flags=0x%08x primary=%u"
+		    " cdf=%s cdf_slot=%d refresh=0x%02x status=%u submitted=%" PRIu64 "\n",
+		    ctx->diag_serial, codec->pend_job, codec->pend_current,
+		    pic->target ? pic->target->capture_index : -1,
+		    pic->output ? pic->output->index : 0,
+		    pic->output ? pic->output->request_fd : -1,
+		    frame->frame_type, frame->order_hint, frame->flags,
+		    frame->primary_ref_frame, cdf, slot,
+		    frame->refresh_frame_flags, status, ctx->submitted);
+	for (unsigned int i = 0; i < 8; i++)
+		v4l2r_trace("AV1 dpb ctx=%u job=%" PRIu64
+			    " slot=%u surface=0x%08x timestamp=%" PRIu64 "\n",
+			    ctx->diag_serial, codec->pend_job, i,
+			    codec->pend_refs[i], (uint64_t)frame->reference_frame_ts[i]);
+	v4l2r_trace("AV1 refs ctx=%u job=%" PRIu64
+		    " idx=%u,%u,%u,%u,%u,%u,%u hints=%u,%u,%u,%u,%u,%u,%u\n",
+		    ctx->diag_serial, codec->pend_job,
+		    frame->ref_frame_idx[0], frame->ref_frame_idx[1],
+		    frame->ref_frame_idx[2], frame->ref_frame_idx[3],
+		    frame->ref_frame_idx[4], frame->ref_frame_idx[5],
+		    frame->ref_frame_idx[6], frame->order_hints[1],
+		    frame->order_hints[2], frame->order_hints[3],
+		    frame->order_hints[4], frame->order_hints[5],
+		    frame->order_hints[6], frame->order_hints[7]);
+}
+
 /* Submit the held frame with the given refresh_frame_flags, temporarily
  * pointing the decode engine at its reserved OUTPUT buffer and target. */
 static VAStatus av1_submit_pending(struct v4l2r_context *ctx, uint8_t refresh)
@@ -763,6 +818,7 @@ static VAStatus av1_submit_pending(struct v4l2r_context *ctx, uint8_t refresh)
 	saved = ctx->pic;
 	ctx->pic = codec->pend_pic;
 	status = v4l2r_decode(ctx, controls, count, true, true);
+	av1_trace_pending(ctx, status);
 	ctx->pic = saved;
 
 	return status;
@@ -850,6 +906,9 @@ static VAStatus av1_end_picture(struct v4l2r_context *ctx)
 	codec->pend_pic = ctx->pic;
 	codec->pend_current = codec->va_pic.current_frame;
 	codec->pend_fallback = av1_fallback_refresh(codec);
+	memcpy(codec->pend_refs, codec->va_pic.ref_frame_map,
+	       sizeof(codec->pend_refs));
+	codec->pend_job = ++codec->next_job;
 	codec->pend_valid = true;
 
 	/* Record the order hint now (later frames reference it while this one
