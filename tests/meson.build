@@ -377,3 +377,24 @@ test('h264-syntax-probe', python3, args: files('h264-syntax-probe-test.py'), tim
 # Published M1 evidence is verified offline; this never opens a decoder.
 test('concurrency-hardware-evidence', python3,
      args: [files('../docs/concurrency-2026-09-18/verify.py'), '--self-test'], timeout: 30)
+
+if conf.get('HAVE_V4L2_CTRL_AV1') == 1
+  av1_reftrace = executable('av1-reftrace', 'av1-reftrace.c', driver_sources,
+    c_args: ['-UNDEBUG'],
+    include_directories: [root_inc, include_directories('../src')],
+    dependencies: [libva_dep, libdrm_dep, threads_dep],
+    link_args: ['-Wl,--wrap=ioctl', '-Wl,--wrap=poll', '-Wl,--wrap=__poll_chk'])
+  foreach gate : ['gate-set', 'gate-empty', 'gate-unset']
+    test('av1-reftrace-' + gate, av1_reftrace,
+         args: [gate, 'off', meson.current_build_dir() / ('av1-' + gate)], timeout: 15)
+  endforeach
+  foreach case : ['basic', 'default', 'default-missing', 'default-foreign', 'failure',
+                  'required-missing', 'required-foreign', 'required-failed', 'required-detached',
+                  'primary-bounds', 'slot-bounds', 'valid-primary', 'key-default',
+                  'intra-default', 'resilient-default', 'none-default']
+    foreach tracing : ['on', 'off']
+      test('av1-reftrace-' + case + '-' + tracing, av1_reftrace,
+           args: [case, tracing, meson.current_build_dir() / ('av1-' + case + '-' + tracing + '.controls')], timeout: 15)
+    endforeach
+  endforeach
+endif
